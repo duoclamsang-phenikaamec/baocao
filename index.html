@@ -84,9 +84,9 @@
       <div class="full"><label>Loại công việc <span class="req">*</span></label><select id="ct_LoaiCongViec"></select></div>
 
       <div><label>Khoa</label><input type="text" id="ct_Khoa" list="dl_khoa" autocomplete="off" placeholder="Gõ để lọc khoa..."></div>
-      <div><label>Tên nhân viên y tế</label><input type="text" id="ct_TenNVYT" list="dl_nvyt" autocomplete="off"><datalist id="dl_nvyt"></datalist></div>
+      <div><label id="lbl_ct_TenNVYT">Tên nhân viên y tế <span class="req condreq hidden">*</span></label><input type="text" id="ct_TenNVYT" list="dl_nvyt" autocomplete="off"><datalist id="dl_nvyt"></datalist></div>
       <div><label>Tên bệnh nhân</label><input type="text" id="ct_TenBN"></div>
-      <div><label>Mã bệnh nhân</label><input type="text" id="ct_MaBN"></div>
+      <div><label id="lbl_ct_MaBN">Mã bệnh nhân <span class="req condreq hidden">*</span></label><input type="text" id="ct_MaBN"></div>
 
       <!-- nhóm Can thiệp / Hội chẩn -->
       <div id="g_LoaiCanThiep" class="hidden"><label id="lbl_ct_LoaiCanThiep">Loại can thiệp <span class="req condreq hidden">*</span></label><select id="ct_LoaiCanThiep"></select></div>
@@ -283,6 +283,8 @@ function updateCTFields(){
   star('lbl_ct_KetQuaCanThiep', isCT);
   star('lbl_ct_LoaiThongTinThuoc', isTT);
   star('lbl_ct_NoiDungChiTiet', isCT); // nội dung bắt buộc khi CT/Hội chẩn
+  star('lbl_ct_TenNVYT', lcv==='Can thiệp DLS');
+  star('lbl_ct_MaBN', lcv==='Can thiệp DLS');
 }
 function show(id,on){ document.getElementById(id).classList.toggle('hidden', !on); }
 function star(lblId,on){ var l=document.getElementById(lblId); if(!l)return; var s=l.querySelector('.condreq'); if(s) s.classList.toggle('hidden', !on); }
@@ -298,6 +300,10 @@ function saveCT(){
     if(!val('ct_LoaiCanThiep'))return err(m,'Cần chọn Loại can thiệp');
     if(!val('ct_NoiDungChiTiet'))return err(m,'Cần nhập Nội dung chi tiết');
     if(!val('ct_KetQuaCanThiep'))return err(m,'Cần chọn Kết quả can thiệp');
+  }
+  if(lcv==='Can thiệp DLS'){
+    if(!val('ct_TenNVYT'))return err(m,'Với "Can thiệp DLS" cần nhập Tên nhân viên y tế');
+    if(!val('ct_MaBN'))return err(m,'Với "Can thiệp DLS" cần nhập Mã bệnh nhân');
   }
   if(isTT && !val('ct_LoaiThongTinThuoc'))return err(m,'Cần chọn Loại thông tin thuốc');
 
