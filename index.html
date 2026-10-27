@@ -89,9 +89,9 @@
       <div><label id="lbl_ct_MaBN">Mã bệnh nhân <span class="req condreq hidden">*</span></label><input type="text" id="ct_MaBN"></div>
 
       <!-- nhóm Can thiệp / Hội chẩn -->
-      <div id="g_LoaiCanThiep" class="hidden"><label id="lbl_ct_LoaiCanThiep">Loại can thiệp <span class="req condreq hidden">*</span></label><select id="ct_LoaiCanThiep"></select></div>
+      <div id="g_LoaiCanThiep" class="hidden"><label id="lbl_ct_LoaiCanThiep">Loại can thiệp/hội chẩn <span class="req condreq hidden">*</span></label><select id="ct_LoaiCanThiep"></select></div>
       <div id="g_PhanLoai" class="hidden"><label>Phân loại can thiệp</label><select id="ct_PhanLoaiCanThiep"></select></div>
-      <div id="g_KetQua" class="hidden"><label id="lbl_ct_KetQuaCanThiep">Kết quả can thiệp <span class="req condreq hidden">*</span></label><select id="ct_KetQuaCanThiep"></select></div>
+      <div id="g_KetQua" class="hidden"><label id="lbl_ct_KetQuaCanThiep">Kết quả can thiệp/hội chẩn <span class="req condreq hidden">*</span></label><select id="ct_KetQuaCanThiep"></select></div>
 
       <!-- nhóm Thông tin thuốc -->
       <div id="g_TTThuoc" class="hidden"><label id="lbl_ct_LoaiThongTinThuoc">Loại thông tin thuốc <span class="req condreq hidden">*</span></label><select id="ct_LoaiThongTinThuoc"></select></div>
@@ -275,7 +275,9 @@ function updateCTFields(){
   var isTT = (lcv==='Thông tin thuốc');
   var isTTNT = (lcv==='Thông tin thuốc ngoại trú');
   show('g_LoaiCanThiep', isCT);
-  show('g_PhanLoai', isCT);
+  var isCanThiep = (lcv==='Can thiệp DLS');
+  show('g_PhanLoai', isCanThiep);   // Hội chẩn: ẩn Phân loại can thiệp
+  if(!isCanThiep) document.getElementById('ct_PhanLoaiCanThiep').value='';
   show('g_KetQua', isCT);
   show('g_TTThuoc', isTT || isTTNT);
   // dấu bắt buộc
@@ -297,9 +299,9 @@ function saveCT(){
   if(!lcv){return err(m,'Vui lòng chọn Loại công việc');}
   var isCT=(lcv==='Can thiệp DLS'||lcv==='Hội chẩn DLS'), isTT=(lcv==='Thông tin thuốc');
   if(isCT){
-    if(!val('ct_LoaiCanThiep'))return err(m,'Cần chọn Loại can thiệp');
+    if(!val('ct_LoaiCanThiep'))return err(m,'Cần chọn Loại can thiệp/hội chẩn');
     if(!val('ct_NoiDungChiTiet'))return err(m,'Cần nhập Nội dung chi tiết');
-    if(!val('ct_KetQuaCanThiep'))return err(m,'Cần chọn Kết quả can thiệp');
+    if(!val('ct_KetQuaCanThiep'))return err(m,'Cần chọn Kết quả can thiệp/hội chẩn');
   }
   if(lcv==='Can thiệp DLS'){
     if(!val('ct_TenNVYT'))return err(m,'Với "Can thiệp DLS" cần nhập Tên nhân viên y tế');
@@ -310,7 +312,7 @@ function saveCT(){
   var form={ Ngay:val('ct_Ngay'), MaNS:chosenCT.map(function(d){return d.ma;}), LoaiCongViec:lcv,
     Khoa:val('ct_Khoa'), TenNVYT:val('ct_TenNVYT'), TenBN:val('ct_TenBN'), MaBN:val('ct_MaBN'),
     ThuocLienQuan:val('ct_ThuocLienQuan'), LoaiCanThiep:val('ct_LoaiCanThiep'),
-    PhanLoaiCanThiep:val('ct_PhanLoaiCanThiep'), LoaiThongTinThuoc:val('ct_LoaiThongTinThuoc'),
+    PhanLoaiCanThiep:(lcv==='Can thiệp DLS'?val('ct_PhanLoaiCanThiep'):''), LoaiThongTinThuoc:val('ct_LoaiThongTinThuoc'),
     NoiDungChiTiet:val('ct_NoiDungChiTiet'), KetQuaCanThiep:val('ct_KetQuaCanThiep') };
   var btn=document.getElementById('ct_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){ btn.disabled=false; btn.textContent='Lưu'; res.ok?ok(m,res.msg):err(m,res.msg); if(res.ok)resetCT(true); })
