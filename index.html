@@ -137,7 +137,7 @@
       </div>
       <div><label>Loại công việc <span class="req">*</span></label><select id="ct_LoaiCongViec"></select></div>
 
-      <div><label>Khoa</label><input type="text" id="ct_Khoa" list="dl_khoa" autocomplete="off" placeholder="Gõ để lọc khoa..."></div>
+      <div><label>Khoa</label><select id="ct_Khoa"></select></div>
       <div><label id="lbl_ct_TenNVYT">Tên nhân viên y tế <span class="req condreq hidden">*</span></label><input type="text" id="ct_TenNVYT" list="dl_nvyt" autocomplete="off"><datalist id="dl_nvyt"></datalist></div>
       <div><label>Tên bệnh nhân</label><input type="text" id="ct_TenBN"></div>
       <div><label id="lbl_ct_MaBN">Mã bệnh nhân <span class="req condreq hidden">*</span></label><input type="text" id="ct_MaBN"></div>
@@ -179,7 +179,7 @@
         <div class="chips" id="hd_chips" style="margin:8px 0 0"></div>
       </div>
       <div><label>Loại công việc <span class="req">*</span></label><select id="hd_LoaiCongViec"></select></div>
-      <div><label>Khoa</label><input type="text" id="hd_Khoa" list="dl_khoa" autocomplete="off" placeholder="Gõ để lọc khoa..."></div>
+      <div><label>Khoa <span class="req">*</span></label><select id="hd_Khoa"></select></div>
       <div><label>Giờ bắt đầu</label><input type="time" id="hd_BatDau"></div>
       <div><label>Thời gian (giờ)</label><input type="number" id="hd_ThoiGian" step="0.25" min="0" placeholder="VD: 1.5"></div>
       <div class="full"><label>Chi tiết công việc</label><textarea id="hd_ChiTietCongViec" rows="2"></textarea></div>
@@ -315,6 +315,12 @@ google.script.run.withSuccessHandler(function(dm){
   // Màn 1
   fillSel('ct_LoaiCongViec', ['Can thiệp DLS','Hội chẩn DLS','Thông tin thuốc','Thông tin thuốc ngoại trú'], true);
   fillDatalist('dl_khoa', dm.khoa);
+  // Ô Khoa: chọn từ danh mục DM_KHOA để tên khoa luôn chuẩn
+  fillSel('ct_Khoa', dm.khoa, true);
+  var dsKhoaHD = (dm.khoa||[]).slice();
+  var coKD = dsKhoaHD.some(function(k){ return k.normalize('NFC').toLowerCase()==='khoa dược'; });
+  if(!coKD) dsKhoaHD.unshift('Khoa Dược');      // luôn có "Khoa Dược" để chọn khi làm tại khoa (không tính giờ đi khoa)
+  fillSel('hd_Khoa', dsKhoaHD, true);
   fillSel('ct_KetQuaCanThiep', dm.ketQua, true);
   fillSel('ct_LoaiCanThiep', dm.noiDung, true);
   fillSel('ct_PhanLoaiCanThiep', dm.phanLoai, true);
@@ -427,8 +433,8 @@ function suaCT(id){
   document.getElementById('ct_Ngay').value=r.Ngay;
   chosenCT=chonDS(r.MaNS); renderCT();
   setSel('ct_LoaiCongViec', r.LoaiCongViec); updateCTFields();
-  ['Khoa','TenNVYT','TenBN','MaBN','ThuocLienQuan','NoiDungChiTiet'].forEach(function(k){ document.getElementById('ct_'+k).value=r[k]||''; });
-  ['LoaiCanThiep','PhanLoaiCanThiep','KetQuaCanThiep','LoaiThongTinThuoc'].forEach(function(k){ setSel('ct_'+k, r[k]); });
+  ['TenNVYT','TenBN','MaBN','ThuocLienQuan','NoiDungChiTiet'].forEach(function(k){ document.getElementById('ct_'+k).value=r[k]||''; });
+  ['Khoa','LoaiCanThiep','PhanLoaiCanThiep','KetQuaCanThiep','LoaiThongTinThuoc'].forEach(function(k){ setSel('ct_'+k, r[k]); });
   document.getElementById('ct_editTxt').innerHTML='Đang sửa bản ghi <b>'+esc(r.ID)+'</b> ngày '+r.Ngay+' — sửa xong bấm <b>Cập nhật</b>.';
   document.getElementById('ct_editbar').classList.add('on');
   document.getElementById('ct_saveBtn').textContent='Cập nhật';
@@ -463,7 +469,8 @@ function suaHD(id){
   document.getElementById('hd_Ngay').value=r.Ngay;
   chosenHD=chonDS(r.MaNS); renderHD();
   setSel('hd_LoaiCongViec', r.LoaiCongViec);
-  ['Khoa','BatDau','ThoiGian','ChiTietCongViec'].forEach(function(k){ document.getElementById('hd_'+k).value=r[k]||''; });
+  setSel('hd_Khoa', r.Khoa);
+  ['BatDau','ThoiGian','ChiTietCongViec'].forEach(function(k){ document.getElementById('hd_'+k).value=r[k]||''; });
   document.getElementById('hd_editTxt').innerHTML='Đang sửa bản ghi <b>'+esc(r.ID)+'</b> ngày '+r.Ngay+' — sửa xong bấm <b>Cập nhật</b>.';
   document.getElementById('hd_editbar').classList.add('on');
   document.getElementById('hd_saveBtn').textContent='Cập nhật';
@@ -583,6 +590,7 @@ function saveHD(){
   if(!val('hd_Ngay'))return err(m,'Vui lòng chọn Ngày');
   if(chosenHD.length===0)return err(m,'Vui lòng chọn ít nhất 1 Dược sĩ');
   if(!val('hd_LoaiCongViec'))return err(m,'Vui lòng chọn Loại công việc');
+  if(!val('hd_Khoa'))return err(m,'Vui lòng chọn Khoa (chọn "Khoa Dược" nếu làm tại khoa — sẽ không tính giờ đi khoa)');
   var form={ Ngay:val('hd_Ngay'), MaNS:chosenHD.map(function(d){return d.ma;}).join(', '), LoaiCongViec:val('hd_LoaiCongViec'),
     Khoa:val('hd_Khoa'), BatDau:val('hd_BatDau'), ThoiGian:val('hd_ThoiGian'), ChiTietCongViec:val('hd_ChiTietCongViec') };
   var btn=document.getElementById('hd_saveBtn'), nhan=btn.textContent; btn.disabled=true; btn.textContent='Đang lưu...';
