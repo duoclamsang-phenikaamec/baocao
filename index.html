@@ -17,7 +17,6 @@
   .nav-grp { background:#fff; border:1px solid #eaecef; border-radius:10px; padding:10px 12px 12px; }
   .nav-ttl { font-size:14px; font-weight:700; color:#185fa5; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; }
   @media (max-width:560px){ .nav { grid-template-columns:1fr; } }
-  body.wide .wrap { max-width:1120px; }
   .ds-list { margin-top:22px; border-top:1px solid #eaecef; padding-top:16px; }
   .ds-list table { font-size:15px; }
   .ds-list td { vertical-align:top; }
@@ -222,20 +221,21 @@
     <div class="grid">
       <div><label>Ngày kê đơn</label><input type="date" id="rd_NgayKeDon"></div>
       <div><label>Dược sĩ</label><select id="rd_MaNS"></select></div>
-      <div><label>Chuyên khoa</label><input type="text" id="rd_ChuyenKhoa" list="dl_ck" autocomplete="off" placeholder="Gõ để lọc..."><datalist id="dl_ck"></datalist></div>
-      <div><label>Tên BS</label><input type="text" id="rd_TenBS"></div>
     </div>
-    <p style="font-size:14px;color:#8c959f;margin:8px 0 14px">4 ô trên áp dụng chung cho mọi dòng trong bảng.</p>
+    <datalist id="dl_ck"></datalist>
+    <p style="font-size:14px;color:#8c959f;margin:8px 0 14px">2 ô trên áp dụng chung cho mọi dòng trong bảng.</p>
 
     <div class="sg-wrap">
       <table class="sg">
         <thead><tr>
           <th style="width:36px"></th>
-          <th style="width:15%">Tên BN</th>
-          <th style="width:11%">Mã BN <span class="req">*</span></th>
-          <th style="width:15%">Tên thuốc</th>
+          <th style="width:13%">Khoa phòng</th>
+          <th style="width:11%">Tên BS</th>
+          <th style="width:12%">Tên BN</th>
+          <th style="width:9%">Mã BN <span class="req">*</span></th>
+          <th style="width:12%">Tên thuốc</th>
           <th>Nội dung chi tiết</th>
-          <th style="width:19%">Loại DRP</th>
+          <th style="width:16%">Loại DRP</th>
           <th style="width:62px"></th>
         </tr></thead>
         <tbody id="rd_body"></tbody>
@@ -244,7 +244,7 @@
     <div class="sg-tools">
       <button onclick="rdThem(1)">+ Thêm dòng</button>
       <button onclick="rdThem(5)">+ 5 dòng</button>
-      <span class="hint">Enter: xuống dòng dưới &middot; Shift+Enter: xuống hàng trong ô &middot; Dán được từ Excel/Sheet &middot; &#10697; nhân bản dòng (giữ thuốc, nội dung, DRP)</span>
+      <span class="hint">Enter: xuống dòng dưới &middot; Shift+Enter: xuống hàng trong ô &middot; Dán được từ Excel/Sheet &middot; &#10697; nhân bản dòng (chỉ xoá Tên BN, Mã BN)</span>
     </div>
 
     <div class="msg" id="rd_msg"></div>
@@ -332,6 +332,7 @@ google.script.run.withSuccessHandler(function(dm){
   document.getElementById('hd_Ngay').value=today();
   // Màn Rà đơn ngoại trú
   RD_DRP = dm.phanLoai || [];
+  RD_CK = dm.chuyenKhoa || [];
   rdKhoiTao();
   fillDatalist('dl_ck', dm.chuyenKhoa);
   var rp=document.getElementById('rd_MaNS'); rp.innerHTML='<option value="">-- Chọn --</option>';
@@ -588,22 +589,25 @@ function saveHD(){
 function resetHD(keep){ ['hd_BatDau','hd_ThoiGian','hd_ChiTietCongViec'].forEach(function(i){document.getElementById(i).value='';}); ['hd_LoaiCongViec','hd_Khoa'].forEach(function(i){document.getElementById(i).value='';}); chosenHD=[]; renderHD(); hdThoatSua(); if(!keep){var m=document.getElementById('hd_msg');m.className='msg';} }
 
 // ---- Màn Rà đơn ngoại trú (bảng nhập kiểu Google Sheet) ----
-var RD_DRP=[];
-var RD_COT=['TenBN','MaBN','ThuocLienQuan','NoiDungChiTiet','LoaiDRP'];   // thứ tự cột trong bảng
+var RD_DRP=[], RD_CK=[];
+var RD_COT=['ChuyenKhoa','TenBS','TenBN','MaBN','ThuocLienQuan','NoiDungChiTiet','LoaiDRP'];   // thứ tự cột trong bảng
+function rdDS(c){ return c==='LoaiDRP' ? RD_DRP : (c==='ChuyenKhoa' ? RD_CK : null); }   // cột chọn từ danh mục
 
 function rdKhoiTao(){ document.getElementById('rd_body').innerHTML=''; rdThem(5); }
 
 function rdTaoDong(d){
   d=d||{};
   var tr=document.createElement('tr');
-  var opt='<option value=""></option>'+RD_DRP.map(function(x){ return '<option>'+esc(x)+'</option>'; }).join('');
+  var opt=function(ds){ return '<option value=""></option>'+ds.map(function(x){ return '<option>'+esc(x)+'</option>'; }).join(''); };
   tr.innerHTML='<td class="rn"></td>'+
+    '<td><select data-c="ChuyenKhoa">'+opt(RD_CK)+'</select></td>'+
+    '<td><input data-c="TenBS"></td>'+
     '<td><input data-c="TenBN"></td>'+
     '<td><input data-c="MaBN"></td>'+
     '<td><input data-c="ThuocLienQuan" list="dl_thuoc" autocomplete="off"></td>'+
     '<td><textarea data-c="NoiDungChiTiet" rows="1"></textarea></td>'+
-    '<td><select data-c="LoaiDRP">'+opt+'</select></td>'+
-    '<td class="act"><button title="Nhân bản dòng này (giữ thuốc, nội dung, DRP)" onclick="rdNhanBan(this)">&#10697;</button><button title="Xoá dòng" onclick="rdXoa(this)">&times;</button></td>';
+    '<td><select data-c="LoaiDRP">'+opt(RD_DRP)+'</select></td>'+
+    '<td class="act"><button title="Nhân bản dòng này (giữ khoa, BS, thuốc, nội dung, DRP)" onclick="rdNhanBan(this)">&#10697;</button><button title="Xoá dòng" onclick="rdXoa(this)">&times;</button></td>';
   RD_COT.forEach(function(c){ rdGan(tr.querySelector('[data-c="'+c+'"]'), d[c]||''); });
   tr.querySelectorAll('input,textarea,select').forEach(function(el){
     el.addEventListener('keydown', rdPhim);
@@ -616,8 +620,9 @@ function rdTaoDong(d){
 function rdGan(el, v){
   if(el.tagName==='SELECT'){
     v=String(v||'').trim();
-    var khop=RD_DRP.filter(function(x){ return x.toLowerCase()===v.toLowerCase(); })[0];
-    if(!khop && v) khop=RD_DRP.filter(function(x){ return x.toLowerCase().indexOf(v.toLowerCase())>=0; })[0];
+    var ds=rdDS(el.getAttribute('data-c'))||[];
+    var khop=ds.filter(function(x){ return x.toLowerCase()===v.toLowerCase(); })[0];
+    if(!khop && v) khop=ds.filter(function(x){ return x.toLowerCase().indexOf(v.toLowerCase())>=0; })[0];
     el.value=khop||'';
   } else { el.value=v; if(el.tagName==='TEXTAREA') rdCao(el); }
 }
@@ -692,7 +697,7 @@ function saveRD(){
   });
   if(loi.length) return err(m,'Dòng '+loi.join(', ')+' chưa có Mã BN.');
   if(!rows.length) return err(m,'Bảng chưa có dòng nào.');
-  var chung={ NgayKeDon:val('rd_NgayKeDon'), MaNS:val('rd_MaNS'), ChuyenKhoa:val('rd_ChuyenKhoa'), TenBS:val('rd_TenBS') };
+  var chung={ NgayKeDon:val('rd_NgayKeDon'), MaNS:val('rd_MaNS') };
   var btn=document.getElementById('rd_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){
     btn.disabled=false; btn.textContent='Lưu tất cả';
@@ -701,7 +706,7 @@ function saveRD(){
 }
 function resetRD(){
   if(document.querySelector('#rd_body input, #rd_body textarea') && !confirm('Xoá toàn bộ bảng đang nhập?')) return;
-  ['rd_TenBS','rd_ChuyenKhoa','rd_NgayKeDon','rd_MaNS'].forEach(function(i){document.getElementById(i).value='';});
+  ['rd_NgayKeDon','rd_MaNS'].forEach(function(i){document.getElementById(i).value='';});
   rdKhoiTao(); document.getElementById('rd_msg').className='msg';
 }
 
