@@ -130,12 +130,12 @@
     <div class="editbar" id="ct_editbar"><span id="ct_editTxt"></span><button onclick="resetCT()">Huỷ sửa</button></div>
     <div class="grid">
       <div><label>Ngày <span class="req">*</span></label><input type="date" id="ct_Ngay"></div>
-      <div class="full">
+      <div>
         <label>Dược sĩ thực hiện <span class="req">*</span> <span style="color:#8c959f">(chọn nhiều)</span></label>
-        <div class="chips" id="ct_chips"></div>
         <select id="ct_duocsiPick"><option value="">-- Thêm dược sĩ --</option></select>
+        <div class="chips" id="ct_chips" style="margin:8px 0 0"></div>
       </div>
-      <div class="full"><label>Loại công việc <span class="req">*</span></label><select id="ct_LoaiCongViec"></select></div>
+      <div><label>Loại công việc <span class="req">*</span></label><select id="ct_LoaiCongViec"></select></div>
 
       <div><label>Khoa</label><input type="text" id="ct_Khoa" list="dl_khoa" autocomplete="off" placeholder="Gõ để lọc khoa..."></div>
       <div><label id="lbl_ct_TenNVYT">Tên nhân viên y tế <span class="req condreq hidden">*</span></label><input type="text" id="ct_TenNVYT" list="dl_nvyt" autocomplete="off"><datalist id="dl_nvyt"></datalist></div>
@@ -173,12 +173,12 @@
     <div class="editbar" id="hd_editbar"><span id="hd_editTxt"></span><button onclick="resetHD()">Huỷ sửa</button></div>
     <div class="grid">
       <div><label>Ngày <span class="req">*</span></label><input type="date" id="hd_Ngay"></div>
-      <div class="full">
+      <div>
         <label>Dược sĩ <span class="req">*</span> <span style="color:#8c959f">(chọn nhiều nếu đi cùng)</span></label>
-        <div class="chips" id="hd_chips"></div>
         <select id="hd_duocsiPick"><option value="">-- Thêm dược sĩ --</option></select>
+        <div class="chips" id="hd_chips" style="margin:8px 0 0"></div>
       </div>
-      <div class="full"><label>Loại công việc <span class="req">*</span></label><select id="hd_LoaiCongViec"></select></div>
+      <div><label>Loại công việc <span class="req">*</span></label><select id="hd_LoaiCongViec"></select></div>
       <div><label>Khoa</label><input type="text" id="hd_Khoa" list="dl_khoa" autocomplete="off" placeholder="Gõ để lọc khoa..."></div>
       <div><label>Giờ bắt đầu</label><input type="time" id="hd_BatDau"></div>
       <div><label>Thời gian (giờ)</label><input type="number" id="hd_ThoiGian" step="0.25" min="0" placeholder="VD: 1.5"></div>
@@ -203,6 +203,7 @@
       <div><label>Ngày <span class="req">*</span></label><input type="date" id="rs_Ngay"></div>
       <div><label>Dược sĩ rà soát <span class="req">*</span></label><select id="rs_DSRaSoat"></select></div>
       <div><label>Dược sĩ được rà soát <span class="req">*</span></label><select id="rs_DSDuocRaSoat"></select></div>
+      <div><label>Số BN rà soát <span class="req">*</span></label><input type="number" id="rs_SoBN" min="0" step="1" placeholder="VD: 25"></div>
       <div class="full"><label>Chi tiết vấn đề rà soát được</label><textarea id="rs_ChiTiet" rows="4" placeholder="Mỗi vấn đề một dòng..."></textarea></div>
     </div>
     <div class="msg" id="rs_msg"></div>
@@ -219,8 +220,8 @@
   <div id="screen-radon" class="card hidden">
     <div class="head"><div class="ic">&#128203;</div><div><h2>Rà đơn ngoại trú</h2><p>Ghi nhận DRP đơn ngoại trú &mdash; nhập nhiều dòng như Google Sheet</p></div></div>
     <div class="grid">
-      <div><label>Ngày kê đơn</label><input type="date" id="rd_NgayKeDon"></div>
-      <div><label>Dược sĩ</label><select id="rd_MaNS"></select></div>
+      <div><label>Tháng rà soát <span class="req">*</span></label><input type="month" id="rd_Thang"></div>
+      <div><label>Dược sĩ <span class="req">*</span></label><select id="rd_MaNS"></select></div>
     </div>
     <datalist id="dl_ck"></datalist>
     <p style="font-size:14px;color:#8c959f;margin:8px 0 14px">2 ô trên áp dụng chung cho mọi dòng trong bảng.</p>
@@ -479,26 +480,29 @@ function saveRS(){
   if(!val('rs_DSRaSoat'))return err(m,'Vui lòng chọn Dược sĩ rà soát');
   if(!val('rs_DSDuocRaSoat'))return err(m,'Vui lòng chọn Dược sĩ được rà soát');
   if(val('rs_DSRaSoat')===val('rs_DSDuocRaSoat'))return err(m,'Dược sĩ rà soát và dược sĩ được rà soát phải khác nhau');
-  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), ChiTiet:val('rs_ChiTiet') };
+  if(val('rs_SoBN')==='')return err(m,'Vui lòng nhập Số BN rà soát');
+  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), SoBN:val('rs_SoBN'), ChiTiet:val('rs_ChiTiet') };
   var btn=document.getElementById('rs_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){
     btn.disabled=false; btn.textContent='Lưu'; res.ok?ok(m,res.msg):err(m,res.msg);
     if(res.ok){ resetRS(true); document.getElementById('rs_thang').value=form.Ngay.slice(0,7); loadRS(); }
   }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Lưu'; err(m,'Lỗi: '+e.message); }).rsc_luu(form);
 }
-function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_ChiTiet'].forEach(function(i){document.getElementById(i).value='';}); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
+function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_SoBN','rs_ChiTiet'].forEach(function(i){document.getElementById(i).value='';}); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
 function loadRS(){
   rsDaTai=true;
   var a=document.getElementById('rs_area'); a.innerHTML='<p style="color:#656d76">Đang tải...</p>';
   google.script.run.withSuccessHandler(function(rows){
     if(!rows||!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt rà soát nào trong tháng này.</p>'; return; }
-    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
+    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th class="num">Số BN</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
+    var tongBN=0;
     rows.forEach(function(r){
-      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td>'+
+      tongBN+=r.soBN||0;
+      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td><td class="num">'+(r.soBN||0)+'</td>'+
          '<td style="white-space:pre-line">'+esc(r.chiTiet)+'</td>'+
          '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaRS(\''+r.id+'\',\''+r.ngay+'\',this)">Xóa</button></td></tr>';
     });
-    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="5">Tổng: '+rows.length+' lượt rà soát</td></tr>';
+    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="3">Tổng: '+rows.length+' lượt rà soát</td><td class="num">'+tongBN+'</td><td colspan="2"></td></tr>';
     a.innerHTML=h+'</tbody></table></div>';
   }).withFailureHandler(function(e){ a.innerHTML='<p style="color:#cf222e">Lỗi: '+e.message+'</p>'; }).rsc_danhSach(val('rs_thang'));
 }
@@ -593,7 +597,7 @@ var RD_DRP=[], RD_CK=[];
 var RD_COT=['ChuyenKhoa','TenBS','TenBN','MaBN','ThuocLienQuan','NoiDungChiTiet','LoaiDRP'];   // thứ tự cột trong bảng
 function rdDS(c){ return c==='LoaiDRP' ? RD_DRP : (c==='ChuyenKhoa' ? RD_CK : null); }   // cột chọn từ danh mục
 
-function rdKhoiTao(){ document.getElementById('rd_body').innerHTML=''; rdThem(5); }
+function rdKhoiTao(){ document.getElementById('rd_body').innerHTML=''; rdThem(5); var n=document.getElementById('rd_Thang'); if(!n.value) n.value=thangNay(); }
 
 function rdTaoDong(d){
   d=d||{};
@@ -697,7 +701,9 @@ function saveRD(){
   });
   if(loi.length) return err(m,'Dòng '+loi.join(', ')+' chưa có Mã BN.');
   if(!rows.length) return err(m,'Bảng chưa có dòng nào.');
-  var chung={ NgayKeDon:val('rd_NgayKeDon'), MaNS:val('rd_MaNS') };
+  if(!val('rd_Thang')) return err(m,'Vui lòng chọn Tháng rà soát (thiếu tháng thì DRP không được tính vào báo cáo).');
+  if(!val('rd_MaNS')) return err(m,'Vui lòng chọn Dược sĩ.');
+  var chung={ ThangRaSoat:val('rd_Thang'), MaNS:val('rd_MaNS') };
   var btn=document.getElementById('rd_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){
     btn.disabled=false; btn.textContent='Lưu tất cả';
@@ -706,7 +712,7 @@ function saveRD(){
 }
 function resetRD(){
   if(document.querySelector('#rd_body input, #rd_body textarea') && !confirm('Xoá toàn bộ bảng đang nhập?')) return;
-  ['rd_NgayKeDon','rd_MaNS'].forEach(function(i){document.getElementById(i).value='';});
+  ['rd_Thang','rd_MaNS'].forEach(function(i){document.getElementById(i).value='';});   // rdKhoiTao điền lại tháng hiện tại
   rdKhoiTao(); document.getElementById('rd_msg').className='msg';
 }
 
@@ -922,7 +928,7 @@ function saveSoBN(){
     <div class="head"><div class="ic">&#128272;</div><div><h2>Bảng kiểm tủ trực</h2><p>Phụ lục 02 &mdash; an toàn quản lý thuốc tại khoa lâm sàng</p></div></div>
 
     <div class="grid">
-      <div class="full"><label>Khoa / Trung tâm <span class="req">*</span></label><select id="tt_khoa"></select></div>
+      <div><label>Khoa / Trung tâm <span class="req">*</span></label><select id="tt_khoa"></select></div>
       <div><label>Ngày kiểm tra <span class="req">*</span></label><input type="date" id="tt_ngay"></div>
       <div><label>Giờ bắt đầu</label><input type="time" id="tt_gioBd"></div>
       <div><label>Dược sĩ giám sát <span class="req">*</span></label><select id="tt_duocsi"></select></div>
