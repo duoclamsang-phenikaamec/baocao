@@ -203,7 +203,8 @@
       <div><label>Ngày <span class="req">*</span></label><input type="date" id="rs_Ngay"></div>
       <div><label>Dược sĩ rà soát <span class="req">*</span></label><select id="rs_DSRaSoat"></select></div>
       <div><label>Dược sĩ được rà soát <span class="req">*</span></label><select id="rs_DSDuocRaSoat"></select></div>
-      <div><label>Số BN rà soát <span class="req">*</span></label><input type="number" id="rs_SoBN" min="0" step="1" placeholder="VD: 25"></div>
+      <div><label>Số BN rà soát <span class="req">*</span></label><input type="number" id="rs_SoBN" min="0" step="1" placeholder="VD: 25" oninput="rsTyLe()"></div>
+      <div><label>Số vấn đề phát hiện <span class="req">*</span> <span id="rs_tyle" style="color:#0969da;font-weight:600"></span></label><input type="number" id="rs_SoVanDe" min="0" step="1" placeholder="VD: 3" oninput="rsTyLe()"></div>
       <div class="full"><label>Chi tiết vấn đề rà soát được</label><textarea id="rs_ChiTiet" rows="4" placeholder="Mỗi vấn đề một dòng..."></textarea></div>
     </div>
     <div class="msg" id="rs_msg"></div>
@@ -480,6 +481,8 @@ function hdThoatSua(){ if(hdSua) document.getElementById('hd_Ngay').value=today(
 
 // ---- Màn Rà soát chéo ----
 var rsDaTai=false;
+function pct(a,b){ return b>0 ? (Math.round(a/b*1000)/10)+'%' : '–'; }
+function rsTyLe(){ var b=parseFloat(val('rs_SoBN')), a=parseFloat(val('rs_SoVanDe')); document.getElementById('rs_tyle').textContent=(b>0&&a>=0)?('= '+pct(a,b)):''; }
 function dsTen(ma){ var d=DM&&DM.duocsi.find(function(x){return x.ma===ma;}); return d?d.ten:ma; }
 function saveRS(){
   var m=document.getElementById('rs_msg');
@@ -488,28 +491,29 @@ function saveRS(){
   if(!val('rs_DSDuocRaSoat'))return err(m,'Vui lòng chọn Dược sĩ được rà soát');
   if(val('rs_DSRaSoat')===val('rs_DSDuocRaSoat'))return err(m,'Dược sĩ rà soát và dược sĩ được rà soát phải khác nhau');
   if(val('rs_SoBN')==='')return err(m,'Vui lòng nhập Số BN rà soát');
-  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), SoBN:val('rs_SoBN'), ChiTiet:val('rs_ChiTiet') };
+  if(val('rs_SoVanDe')==='')return err(m,'Vui lòng nhập Số vấn đề phát hiện (không có thì nhập 0)');
+  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), SoBN:val('rs_SoBN'), SoVanDe:val('rs_SoVanDe'), ChiTiet:val('rs_ChiTiet') };
   var btn=document.getElementById('rs_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){
     btn.disabled=false; btn.textContent='Lưu'; res.ok?ok(m,res.msg):err(m,res.msg);
     if(res.ok){ resetRS(true); document.getElementById('rs_thang').value=form.Ngay.slice(0,7); loadRS(); }
   }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Lưu'; err(m,'Lỗi: '+e.message); }).rsc_luu(form);
 }
-function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_SoBN','rs_ChiTiet'].forEach(function(i){document.getElementById(i).value='';}); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
+function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_SoBN','rs_SoVanDe','rs_ChiTiet'].forEach(function(i){document.getElementById(i).value='';}); rsTyLe(); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
 function loadRS(){
   rsDaTai=true;
   var a=document.getElementById('rs_area'); a.innerHTML='<p style="color:#656d76">Đang tải...</p>';
   google.script.run.withSuccessHandler(function(rows){
     if(!rows||!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt rà soát nào trong tháng này.</p>'; return; }
-    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th class="num">Số BN</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
-    var tongBN=0;
+    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th class="num">Số BN</th><th class="num">Số vấn đề</th><th class="num">% vấn đề</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
+    var tongBN=0, tongVD=0;
     rows.forEach(function(r){
-      tongBN+=r.soBN||0;
-      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td><td class="num">'+(r.soBN||0)+'</td>'+
+      tongBN+=r.soBN||0; tongVD+=r.soVanDe||0;
+      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td><td class="num">'+(r.soBN||0)+'</td><td class="num">'+(r.soVanDe||0)+'</td><td class="num">'+pct(r.soVanDe,r.soBN)+'</td>'+
          '<td style="white-space:pre-line">'+esc(r.chiTiet)+'</td>'+
          '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaRS(\''+r.id+'\',\''+r.ngay+'\',this)">Xóa</button></td></tr>';
     });
-    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="3">Tổng: '+rows.length+' lượt rà soát</td><td class="num">'+tongBN+'</td><td colspan="2"></td></tr>';
+    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="3">Tổng: '+rows.length+' lượt rà soát</td><td class="num">'+tongBN+'</td><td class="num">'+tongVD+'</td><td class="num">'+pct(tongVD,tongBN)+'</td><td colspan="2"></td></tr>';
     a.innerHTML=h+'</tbody></table></div>';
   }).withFailureHandler(function(e){ a.innerHTML='<p style="color:#cf222e">Lỗi: '+e.message+'</p>'; }).rsc_danhSach(val('rs_thang'));
 }
@@ -731,19 +735,21 @@ function loadBaoCao(){
   var area=document.getElementById('bc_area'); area.innerHTML='<p style="color:#656d76">Đang tải...</p>';
   google.script.run.withSuccessHandler(renderBaoCao).withFailureHandler(function(e){ area.innerHTML='<p style="color:#cf222e">Lỗi: '+e.message+'</p>'; }).getBaoCao(thangValue());
 }
+// Ô "Rà soát chéo": 1.2% – 250 BN  (di chuột để xem số vấn đề)
+function oRSC(vd,bn){ vd=vd||0; bn=bn||0; if(!bn) return '<td class="num" style="color:#8c959f">–</td>'; return '<td class="num" style="white-space:nowrap" title="'+vd+' vấn đề / '+bn+' BN">'+pct(vd,bn)+' – '+bn+' BN</td>'; }
 function renderBaoCao(rows){
   var area=document.getElementById('bc_area');
   if(!rows||!rows.length){ area.innerHTML='<p style="color:#656d76">Không có dữ liệu.</p>'; return; }
-  var html='<table><thead><tr><th>Tên dược sĩ</th><th class="num" title="Can thiệp + Hội chẩn + Thông tin thuốc">Tổng CT/HC/TT</th><th class="num">Giờ đi khoa</th><th class="num">Giờ làm</th><th class="num">Tỷ lệ đi khoa</th><th class="num">Lượt BN</th><th class="num">Tỷ lệ can thiệp</th><th class="num">Số DRP</th><th class="num">Số đơn</th><th class="num">Tỷ lệ DRP</th><th class="num">Hủy thuốc</th></tr></thead><tbody>';
-  var t={ct:0,hc:0,tt:0,tong:0,gio:0,giolam:0,luot:0,drp:0,don:0,huy:0};
+  var html='<table><thead><tr><th>Tên dược sĩ</th><th class="num" title="Can thiệp + Hội chẩn + Thông tin thuốc">Tổng CT/HC/TT</th><th class="num">Giờ đi khoa</th><th class="num">Giờ làm</th><th class="num">Tỷ lệ đi khoa</th><th class="num">Lượt BN</th><th class="num">Tỷ lệ can thiệp</th><th class="num">Số DRP</th><th class="num">Số đơn</th><th class="num">Tỷ lệ DRP</th><th class="num">Hủy thuốc</th><th class="num" title="% vấn đề phát hiện / số BN đã rà soát (tính cho dược sĩ rà soát)">Rà soát chéo</th></tr></thead><tbody>';
+  var t={ct:0,hc:0,tt:0,tong:0,gio:0,giolam:0,luot:0,drp:0,don:0,huy:0,rscBN:0,rscVD:0};
   rows.forEach(function(s){
-    html+='<tr><td style="white-space:nowrap">'+esc(s.ten)+'</td><td class="num"><b>'+s.tong+'</b></td><td class="num">'+s.gioDiKhoa+'</td><td class="num">'+s.gioLam+'</td><td class="num">'+s.tyLe+'%</td><td class="num">'+s.soLuotBN+'</td><td class="num">'+s.tyLeCanThiep+'%</td><td class="num">'+s.soDRP+'</td><td class="num">'+s.soDonRa+'</td><td class="num">'+s.tyLeDRP+'%</td><td class="num">'+(s.soHuy||0)+'</td></tr>';
-    t.ct+=s.canThiep; t.hc+=s.hoiChan; t.tt+=s.ttThuoc; t.tong+=s.tong; t.gio+=s.gioDiKhoa; t.giolam+=s.gioLam; t.luot+=s.soLuotBN; t.drp+=s.soDRP; t.don+=s.soDonRa; t.huy+=(s.soHuy||0);
+    html+='<tr><td style="white-space:nowrap">'+esc(s.ten)+'</td><td class="num"><b>'+s.tong+'</b></td><td class="num">'+s.gioDiKhoa+'</td><td class="num">'+s.gioLam+'</td><td class="num">'+s.tyLe+'%</td><td class="num">'+s.soLuotBN+'</td><td class="num">'+s.tyLeCanThiep+'%</td><td class="num">'+s.soDRP+'</td><td class="num">'+s.soDonRa+'</td><td class="num">'+s.tyLeDRP+'%</td><td class="num">'+(s.soHuy||0)+'</td>'+oRSC(s.rscSoVanDe,s.rscSoBN)+'</tr>';
+    t.ct+=s.canThiep; t.hc+=s.hoiChan; t.tt+=s.ttThuoc; t.tong+=s.tong; t.gio+=s.gioDiKhoa; t.giolam+=s.gioLam; t.luot+=s.soLuotBN; t.drp+=s.soDRP; t.don+=s.soDonRa; t.huy+=(s.soHuy||0); t.rscBN+=(s.rscSoBN||0); t.rscVD+=(s.rscSoVanDe||0);
   });
   var tyLeTong = t.giolam>0 ? Math.round(t.gio/t.giolam*1000)/10 : 0;
   var tyLeCTTong = t.luot>0 ? Math.round(t.tong/t.luot*1000)/10 : 0;
   var tyLeDRPTong = t.don>0 ? Math.round(t.drp/t.don*1000)/10 : 0;
-  html+='<tr style="font-weight:700;background:#f6f8fa"><td style="white-space:nowrap">TỔNG CỘNG</td><td class="num">'+t.tong+'</td><td class="num">'+(Math.round(t.gio*100)/100)+'</td><td class="num">'+t.giolam+'</td><td class="num">'+tyLeTong+'%</td><td class="num">'+t.luot+'</td><td class="num">'+tyLeCTTong+'%</td><td class="num">'+t.drp+'</td><td class="num">'+t.don+'</td><td class="num">'+tyLeDRPTong+'%</td><td class="num">'+t.huy+'</td></tr>';
+  html+='<tr style="font-weight:700;background:#f6f8fa"><td style="white-space:nowrap">TỔNG CỘNG</td><td class="num">'+t.tong+'</td><td class="num">'+(Math.round(t.gio*100)/100)+'</td><td class="num">'+t.giolam+'</td><td class="num">'+tyLeTong+'%</td><td class="num">'+t.luot+'</td><td class="num">'+tyLeCTTong+'%</td><td class="num">'+t.drp+'</td><td class="num">'+t.don+'</td><td class="num">'+tyLeDRPTong+'%</td><td class="num">'+t.huy+'</td>'+oRSC(t.rscVD,t.rscBN)+'</tr>';
   html+='</tbody></table>';
   area.innerHTML=html;
 }
