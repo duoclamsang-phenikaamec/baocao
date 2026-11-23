@@ -203,9 +203,28 @@
       <div><label>Ngày <span class="req">*</span></label><input type="date" id="rs_Ngay"></div>
       <div><label>Dược sĩ rà soát <span class="req">*</span></label><select id="rs_DSRaSoat"></select></div>
       <div><label>Dược sĩ được rà soát <span class="req">*</span></label><select id="rs_DSDuocRaSoat"></select></div>
-      <div><label>Số BN rà soát <span class="req">*</span></label><input type="number" id="rs_SoBN" min="0" step="1" placeholder="VD: 25" oninput="rsTyLe()"></div>
+      <div><label>Khoa rà soát <span class="req">*</span></label><select id="rs_Khoa"></select></div>
+      <div><label>Số BN rà soát <span class="req">*</span></label><input type="number" id="rs_SoBN" min="0" step="1" placeholder="Tự đếm theo bảng" oninput="rsBNTay=true; rsTyLe()"></div>
       <div><label>Số vấn đề phát hiện <span class="req">*</span> <span id="rs_tyle" style="color:#0969da;font-weight:600"></span></label><input type="number" id="rs_SoVanDe" min="0" step="1" placeholder="VD: 3" oninput="rsTyLe()"></div>
-      <div class="full"><label>Chi tiết vấn đề rà soát được</label><textarea id="rs_ChiTiet" rows="4" placeholder="Mỗi vấn đề một dòng..."></textarea></div>
+    </div>
+
+    <label style="display:block;margin:16px 0 6px">Chi tiết vấn đề rà soát được <span style="color:#8c959f">(không bắt buộc &mdash; mỗi dòng 1 bệnh nhân)</span></label>
+    <div class="sg-wrap">
+      <table class="sg" style="min-width:640px">
+        <thead><tr>
+          <th style="width:52px;text-align:center">STT</th>
+          <th style="width:22%">Họ tên BN</th>
+          <th style="width:14%">Mã BN</th>
+          <th>Nội dung</th>
+          <th style="width:44px"></th>
+        </tr></thead>
+        <tbody id="rs_body"></tbody>
+      </table>
+    </div>
+    <div class="sg-tools">
+      <button onclick="rsThem(1)">+ Thêm dòng</button>
+      <button onclick="rsThem(5)">+ 5 dòng</button>
+      <span class="hint">Enter: xuống dòng dưới &middot; Shift+Enter: xuống hàng trong ô &middot; Dán được từ Excel/Sheet &middot; Số BN rà soát tự đếm theo số dòng có nội dung</span>
     </div>
     <div class="msg" id="rs_msg"></div>
     <div class="btns"><button onclick="resetRS()">Làm mới</button><button class="primary" id="rs_saveBtn" onclick="saveRS()">Lưu</button></div>
@@ -350,6 +369,8 @@ google.script.run.withSuccessHandler(function(dm){
     var s=document.getElementById(id); s.innerHTML='<option value="">-- Chọn --</option>';
     dm.duocsi.forEach(function(d){ var o=document.createElement('option'); o.value=d.ma; o.textContent=d.ten; s.appendChild(o); });
   });
+  fillSel('rs_Khoa', dm.khoa, true);
+  rsKhoiTao();
   document.getElementById('rs_Ngay').value=today();
   document.getElementById('rs_thang').value=thangNay();
 
@@ -480,7 +501,51 @@ function suaHD(id){
 function hdThoatSua(){ if(hdSua) document.getElementById('hd_Ngay').value=today(); hdSua=null; document.getElementById('hd_editbar').classList.remove('on'); document.getElementById('hd_saveBtn').textContent='Lưu'; if(hdList) veHDList(); }
 
 // ---- Màn Rà soát chéo ----
-var rsDaTai=false;
+var rsDaTai=false, rsBNTay=false;   // rsBNTay = người dùng đã tự gõ Số BN -> không tự đếm đè lên
+var RS_COT=['TenBN','MaBN','NoiDung'];
+
+// Bảng nhập chi tiết (kiểu Excel): STT tự chạy | Họ tên BN | Mã BN | Nội dung
+function rsKhoiTao(){ document.getElementById('rs_body').innerHTML=''; rsThem(5); }
+function rsTaoDong(){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td class="rn"></td><td><input data-c="TenBN"></td><td><input data-c="MaBN"></td>'+
+    '<td><textarea data-c="NoiDung" rows="1"></textarea></td>'+
+    '<td class="act" style="width:44px"><button title="Xoá dòng" onclick="rsXoaDong(this)">&times;</button></td>';
+  tr.querySelectorAll('input,textarea').forEach(function(el){
+    el.addEventListener('keydown', rsPhim);
+    el.addEventListener('paste', rsDan);
+    el.addEventListener('input', function(){ if(el.tagName==='TEXTAREA') rdCao(el); rsDem(); });
+  });
+  return tr;
+}
+function rsThem(n){ var b=document.getElementById('rs_body'), tr; for(var i=0;i<n;i++){ tr=rsTaoDong(); b.appendChild(tr); } rsSTT(); return tr; }
+function rsSTT(){ document.querySelectorAll('#rs_body tr').forEach(function(r,i){ r.cells[0].textContent=i+1; }); }
+function rsXoaDong(btn){ var tr=btn.closest('tr'); tr.parentNode.removeChild(tr); if(!document.querySelector('#rs_body tr')) rsThem(1); rsSTT(); rsDem(); }
+function rsDong(tr){ var o={}; RS_COT.forEach(function(c){ o[c]=tr.querySelector('[data-c="'+c+'"]').value.trim(); }); return o; }
+function rsCacDong(){ return Array.prototype.map.call(document.querySelectorAll('#rs_body tr'), rsDong)
+  .filter(function(d){ return d.TenBN||d.MaBN||d.NoiDung; }); }
+// Ghép thành: "BN A - Mã - Nội dung" mỗi dòng (bỏ phần trống)
+// Chỉ ghép những BN CÓ nội dung vấn đề; BN không có vấn đề vẫn được đếm vào Số BN
+function rsGhepChiTiet(){ return rsCacDong().filter(function(d){ return d.NoiDung; }).map(function(d){ return [d.TenBN,d.MaBN,d.NoiDung.replace(/\s*\n\s*/g,'; ')].filter(String).join(' - '); }).join('\n'); }
+function rsDem(){ if(rsBNTay) return; var n=rsCacDong().length; document.getElementById('rs_SoBN').value = n ? n : ''; rsTyLe(); }
+function rsPhim(e){
+  if(e.key!=='Enter'||e.shiftKey||e.altKey) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'), c=e.target.getAttribute('data-c');
+  var sau=tr.nextElementSibling || rsThem(1);
+  sau.querySelector('[data-c="'+c+'"]').focus();
+}
+function rsDan(e){
+  var txt=(e.clipboardData||window.clipboardData).getData('text');
+  if(!txt || (txt.indexOf('\t')<0 && txt.replace(/\r?\n$/,'').indexOf('\n')<0)) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'), c0=RS_COT.indexOf(e.target.getAttribute('data-c'));
+  rdTachTSV(txt).forEach(function(cot,i){
+    if(i>0) tr=tr.nextElementSibling || rsThem(1);
+    cot.forEach(function(v,j){ var c=RS_COT[c0+j]; if(!c) return; var el=tr.querySelector('[data-c="'+c+'"]'); el.value=v; if(el.tagName==='TEXTAREA') rdCao(el); });
+  });
+  rsDem();
+}
 function pct(a,b){ return b>0 ? (Math.round(a/b*1000)/10)+'%' : '–'; }
 function rsTyLe(){ var b=parseFloat(val('rs_SoBN')), a=parseFloat(val('rs_SoVanDe')); document.getElementById('rs_tyle').textContent=(b>0&&a>=0)?('= '+pct(a,b)):''; }
 function dsTen(ma){ var d=DM&&DM.duocsi.find(function(x){return x.ma===ma;}); return d?d.ten:ma; }
@@ -490,30 +555,31 @@ function saveRS(){
   if(!val('rs_DSRaSoat'))return err(m,'Vui lòng chọn Dược sĩ rà soát');
   if(!val('rs_DSDuocRaSoat'))return err(m,'Vui lòng chọn Dược sĩ được rà soát');
   if(val('rs_DSRaSoat')===val('rs_DSDuocRaSoat'))return err(m,'Dược sĩ rà soát và dược sĩ được rà soát phải khác nhau');
+  if(!val('rs_Khoa'))return err(m,'Vui lòng chọn Khoa rà soát');
   if(val('rs_SoBN')==='')return err(m,'Vui lòng nhập Số BN rà soát');
   if(val('rs_SoVanDe')==='')return err(m,'Vui lòng nhập Số vấn đề phát hiện (không có thì nhập 0)');
-  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), SoBN:val('rs_SoBN'), SoVanDe:val('rs_SoVanDe'), ChiTiet:val('rs_ChiTiet') };
+  var form={ Ngay:val('rs_Ngay'), DS_RaSoat:val('rs_DSRaSoat'), DS_DuocRaSoat:val('rs_DSDuocRaSoat'), Khoa:val('rs_Khoa'), SoBN:val('rs_SoBN'), SoVanDe:val('rs_SoVanDe'), ChiTiet:rsGhepChiTiet() };
   var btn=document.getElementById('rs_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
   google.script.run.withSuccessHandler(function(res){
     btn.disabled=false; btn.textContent='Lưu'; res.ok?ok(m,res.msg):err(m,res.msg);
     if(res.ok){ resetRS(true); document.getElementById('rs_thang').value=form.Ngay.slice(0,7); loadRS(); }
   }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Lưu'; err(m,'Lỗi: '+e.message); }).rsc_luu(form);
 }
-function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_SoBN','rs_SoVanDe','rs_ChiTiet'].forEach(function(i){document.getElementById(i).value='';}); rsTyLe(); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
+function resetRS(keep){ ['rs_DSRaSoat','rs_DSDuocRaSoat','rs_Khoa','rs_SoBN','rs_SoVanDe'].forEach(function(i){document.getElementById(i).value='';}); rsBNTay=false; rsKhoiTao(); rsTyLe(); if(!keep){document.getElementById('rs_msg').className='msg'; document.getElementById('rs_Ngay').value=today();} }
 function loadRS(){
   rsDaTai=true;
   var a=document.getElementById('rs_area'); a.innerHTML='<p style="color:#656d76">Đang tải...</p>';
   google.script.run.withSuccessHandler(function(rows){
     if(!rows||!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt rà soát nào trong tháng này.</p>'; return; }
-    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th class="num">Số BN</th><th class="num">Số vấn đề</th><th class="num">% vấn đề</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
+    var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>DS rà soát</th><th>DS được rà soát</th><th>Khoa</th><th class="num">Số BN</th><th class="num">Số vấn đề</th><th class="num">% vấn đề</th><th>Chi tiết vấn đề</th><th class="num">Xóa</th></tr></thead><tbody>';
     var tongBN=0, tongVD=0;
     rows.forEach(function(r){
       tongBN+=r.soBN||0; tongVD+=r.soVanDe||0;
-      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td><td class="num">'+(r.soBN||0)+'</td><td class="num">'+(r.soVanDe||0)+'</td><td class="num">'+pct(r.soVanDe,r.soBN)+'</td>'+
+      h+='<tr id="rsRow_'+r.id+'"><td style="white-space:nowrap">'+r.ngay+'</td><td>'+esc(dsTen(r.dsRaSoat))+'</td><td>'+esc(dsTen(r.dsDuocRaSoat))+'</td><td>'+esc(r.khoa||'')+'</td><td class="num">'+(r.soBN||0)+'</td><td class="num">'+(r.soVanDe||0)+'</td><td class="num">'+pct(r.soVanDe,r.soBN)+'</td>'+
          '<td style="white-space:pre-line">'+esc(r.chiTiet)+'</td>'+
          '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaRS(\''+r.id+'\',\''+r.ngay+'\',this)">Xóa</button></td></tr>';
     });
-    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="3">Tổng: '+rows.length+' lượt rà soát</td><td class="num">'+tongBN+'</td><td class="num">'+tongVD+'</td><td class="num">'+pct(tongVD,tongBN)+'</td><td colspan="2"></td></tr>';
+    h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="4">Tổng: '+rows.length+' lượt rà soát</td><td class="num">'+tongBN+'</td><td class="num">'+tongVD+'</td><td class="num">'+pct(tongVD,tongBN)+'</td><td colspan="2"></td></tr>';
     a.innerHTML=h+'</tbody></table></div>';
   }).withFailureHandler(function(e){ a.innerHTML='<p style="color:#cf222e">Lỗi: '+e.message+'</p>'; }).rsc_danhSach(val('rs_thang'));
 }
