@@ -303,7 +303,7 @@
     <div class="cc-legend">
       <span><i class="cc-cell full">✓</i>Cả ngày (8h)</span>
       <span><i class="cc-cell half">½</i>Nửa ngày (4h)</span>
-      <span><i class="cc-cell weekend"></i>T7 / CN (không tính giờ)</span>
+      <span><i class="cc-cell weekend"></i>T7 / CN: có tính vào cột Công, không tính vào tỷ lệ báo cáo</span>
       <span>Bấm vào ô để đổi: trống → Nửa ngày → Cả ngày → trống</span>
     </div>
     <div class="msg" id="cc_msg"></div>
@@ -909,25 +909,34 @@ function renderChamCong(res){
 // ---- Xem cả tháng: mỗi dược sĩ 1 hàng, 28–31 cột ngày, cuối hàng là ngày công + giờ làm ----
 var CC_THU=['CN','T2','T3','T4','T5','T6','T7'];
 function ccNgayTrongThang(){ var y=ccThang.getFullYear(), m=ccThang.getMonth(), n=new Date(y,m+1,0).getDate(), out=[]; for(var i=1;i<=n;i++) out.push(ymd(new Date(y,m,i))); return out; }
-function ccTongHang(ma, days){   // giống cách tính trên server: bỏ T7/CN, cả ngày = 1 công/8h, nửa = 0.5/4h
-  var cong=0; days.forEach(function(day){ var dw=parseD(day).getDay(); if(dw===0||dw===6) return; var tt=ccTT(ma,day); cong+= tt==='Cả ngày'?1:(tt==='Nửa ngày'?0.5:0); });
-  return { cong:cong, gio:cong*8 };
+// Công THỰC TẾ (hiện ở màn Chấm công): đếm mọi ngày, kể cả T7/CN. Cả ngày = 1, nửa ngày = 0.5.
+// congTyLe: công dùng cho báo cáo (bỏ T7/CN) — giống cách server tính tỷ lệ đi khoa / can thiệp.
+function ccTongHang(ma, days){
+  var thuc=0, tyLe=0;
+  days.forEach(function(day){
+    var tt=ccTT(ma,day), v= tt==='Cả ngày'?1:(tt==='Nửa ngày'?0.5:0), dw=parseD(day).getDay();
+    thuc+=v; if(dw!==0 && dw!==6) tyLe+=v;
+  });
+  return { cong:thuc, congTyLe:tyLe };
 }
+// Công chuẩn của tháng = số ngày T2–T6 + 0.5 × số ngày T7
+function ccCongChuan(days){ var n=0; days.forEach(function(d){ var w=parseD(d).getDay(); if(w>=1&&w<=5) n+=1; else if(w===6) n+=0.5; }); return n; }
+function ccTitle(t){ return 'Công thực tế: '+t.cong+' (kể cả T7/CN)\nCông tính tỷ lệ báo cáo: '+t.congTyLe+' (bỏ T7/CN) = '+(t.congTyLe*8)+' giờ làm'; }
 function renderChamCongThang(){
   var res=ccGridData, days=ccNgayTrongThang();
-  var soNgayLV=days.filter(function(d){ var w=parseD(d).getDay(); return w!==0&&w!==6; }).length;
+  var congChuan=ccCongChuan(days);
   document.getElementById('cc_tuanLabel').textContent='Tháng '+(ccThang.getMonth()+1)+'/'+ccThang.getFullYear();
   var h='<table class="cc-table cc-month"><colgroup><col class="c-ten">'+days.map(function(){return '<col>';}).join('')+'<col class="c-cong"></colgroup>'+
         '<thead><tr><th rowspan="2" style="text-align:left;padding-left:8px">Dược sĩ</th>';
   days.forEach(function(day){ var w=parseD(day).getDay(); h+='<th class="'+((w===0||w===6)?'dow-we':'')+(day===today()?' today':'')+'">'+CC_THU[w]+'</th>'; });
-  h+='<th rowspan="2" title="Không tính T7/CN">Công<br><span style="font-weight:400;color:#8c959f">/ '+soNgayLV+'</span></th></tr><tr>';
+  h+='<th rowspan="2" title="Công thực tế (kể cả T7/CN) / công chuẩn của tháng (T2–T6 + nửa ngày T7)">Công<br><span style="font-weight:400;color:#8c959f">/ '+congChuan+'</span></th></tr><tr>';
   days.forEach(function(day){ var w=parseD(day).getDay(); h+='<th class="'+((w===0||w===6)?'dow-we':'')+(day===today()?' today':'')+'">'+parseD(day).getDate()+'</th>'; });
   h+='</tr></thead><tbody>';
   res.duocsi.forEach(function(ds){
     var t=ccTongHang(ds.ma, days);
     h+='<tr><td class="name" title="'+esc(ds.ten)+'">'+esc(ds.ten)+'</td>';
     days.forEach(function(day){ var tt=ccTT(ds.ma,day); h+='<td class="'+ccCls(day,tt)+'" onclick="toggleCC(\''+ds.ma+'\',\''+day+'\')" id="cc_'+ds.ma+'_'+day+'">'+ccKyHieu(tt)+'</td>'; });
-    h+='<td class="sum" id="ccSumC_'+ds.ma+'" title="'+t.gio+' giờ làm">'+t.cong+'</td></tr>';
+    h+='<td class="sum" id="ccSumC_'+ds.ma+'" title="'+ccTitle(t)+'">'+t.cong+'</td></tr>';
   });
   // hàng cuối: số người đi làm mỗi ngày
   h+='</tbody><tfoot><tr><td style="text-align:left;padding-left:8px">Số người</td>';
@@ -946,7 +955,7 @@ function toggleCC(ma, day){
   cell.className=ccCls(day,next); cell.textContent=ccKyHieu(next);
   if(ccCheDo==='thang'){
     var t=ccTongHang(ma, ccNgayTrongThang());
-    var sc=document.getElementById('ccSumC_'+ma); sc.textContent=t.cong; sc.title=t.gio+' giờ làm';
+    var sc=document.getElementById('ccSumC_'+ma); sc.textContent=t.cong; sc.title=ccTitle(t);
     var f=document.getElementById('ccFoot_'+day); if(f) f.textContent=ccDemNgay(day)||'';
   }
   google.script.run.withFailureHandler(function(e){ err(document.getElementById('cc_msg'),'Lỗi lưu: '+e.message); }).luuChamCong(day, ma, next);
