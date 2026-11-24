@@ -82,6 +82,21 @@
   .cc-cell.half { background:#fff3cd; color:#8a6d00; font-weight:600; }
   .cc-cell.full { background:#d1f0d8; color:#1a7f37; font-weight:600; }
   .cc-cell.weekend { background:#f0f1f3; color:#8c959f; }
+  .cc-seg { display:inline-flex; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .cc-seg button { border:none; border-radius:0; padding:8px 16px; }
+  .cc-seg button.on { background:#0969da; color:#fff; }
+  .cc-month { font-size:14px; width:100%; min-width:900px; table-layout:fixed; }   /* cột ngày tự chia đều phần còn lại */
+  .cc-month th, .cc-month td { padding:6px 1px; }
+  .cc-month .cc-cell { min-width:0; width:auto; height:34px; }
+  .cc-month col.c-ten { width:150px; }
+  .cc-month col.c-cong { width:72px; }
+  .cc-month td.name { overflow:hidden; text-overflow:ellipsis; padding-left:8px; }
+  .cc-month th.dow-we { background:#eceef1; color:#8c959f; }
+  .cc-month th.today, .cc-month td.today { box-shadow:inset 0 0 0 2px #0969da; }
+  .cc-month td.sum { background:#f6f8fa; font-weight:600; white-space:nowrap; }
+  .cc-month tfoot td { background:#f6f8fa; color:#656d76; font-size:13px; }
+  .cc-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:14px; color:#656d76; margin-top:10px; align-items:center; }
+  .cc-legend i { display:inline-block; width:18px; min-width:0 !important; cursor:default; height:18px; border-radius:4px; vertical-align:-4px; margin-right:5px; border:1px solid #eaecef; font-style:normal; text-align:center; font-size:12px; line-height:16px; }
 </style>
 </head>
 <body>
@@ -274,17 +289,23 @@
 
   <!-- ===== MÀN CHẤM CÔNG ===== -->
   <div id="screen-chamcong" class="card hidden">
-    <div class="head"><div class="ic">&#128197;</div><div><h2>Chấm công tuần</h2><p>Tích ngày đi làm (nửa ngày / cả ngày)</p></div></div>
-    <div class="filterbar">
-      <button onclick="tuanTruoc()">&#8592; Tuần trước</button>
-      <div id="cc_tuanLabel" style="font-weight:600; padding:9px 4px;"></div>
-      <button onclick="tuanSau()">Tuần sau &#8594;</button>
-      <button onclick="tuanNay()">Tuần này</button>
+    <div class="head"><div class="ic">&#128197;</div><div><h2>Chấm công</h2><p>Tích ngày đi làm (nửa ngày / cả ngày)</p></div></div>
+    <div class="filterbar" style="align-items:center">
+      <div class="cc-seg"><button id="cc_btnTuan" onclick="ccDoiCheDo('tuan')">Tuần</button><button id="cc_btnThang" onclick="ccDoiCheDo('thang')">Tháng</button></div>
+      <button onclick="ccTruoc()" id="cc_btnTruoc">&#8592; Trước</button>
+      <div id="cc_tuanLabel" style="font-weight:700; padding:9px 6px; min-width:150px; text-align:center"></div>
+      <button onclick="ccSau()" id="cc_btnSau">Sau &#8594;</button>
+      <button onclick="ccNay()" id="cc_btnNay">Hôm nay</button>
     </div>
     <div style="overflow-x:auto;">
       <div id="cc_grid"><p style="color:#656d76">Đang tải...</p></div>
     </div>
-    <p style="font-size:14px;color:#8c959f;margin-top:10px;">Bấm vào ô để đổi: trống → Nửa ngày → Cả ngày → trống. Thứ 7 & Chủ nhật không tính giờ.</p>
+    <div class="cc-legend">
+      <span><i class="cc-cell full">✓</i>Cả ngày (8h)</span>
+      <span><i class="cc-cell half">½</i>Nửa ngày (4h)</span>
+      <span><i class="cc-cell weekend"></i>T7 / CN (không tính giờ)</span>
+      <span>Bấm vào ô để đổi: trống → Nửa ngày → Cả ngày → trống</span>
+    </div>
     <div class="msg" id="cc_msg"></div>
   </div>
 
@@ -839,45 +860,95 @@ function mondayOf(d){ var x=new Date(d.getTime()); var dow=x.getDay(); var diff=
 function ymd(d){ var m=d.getMonth()+1, day=d.getDate(); return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(day<10?'0':'')+day; }
 function ddmm(d){ var day=d.getDate(), m=d.getMonth()+1; return (day<10?'0':'')+day+'/'+(m<10?'0':'')+m; }
 function parseD(s){ var p=s.split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
-function tuanNay(){ ccMonday=mondayOf(new Date()); loadChamCong(); }
-function tuanTruoc(){ ccMonday.setDate(ccMonday.getDate()-7); loadChamCong(); }
-function tuanSau(){ ccMonday.setDate(ccMonday.getDate()+7); loadChamCong(); }
+var ccCheDo='thang', ccThang=null;   // xem theo 'tuan' hoặc 'thang' (mặc định tháng)
+function ccDauThang(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+function ccDoiCheDo(m){ ccCheDo=m; if(ccGridData) renderChamCong(ccGridData); else loadChamCong(); }
+function ccNay(){ ccMonday=mondayOf(new Date()); ccThang=ccDauThang(new Date()); loadChamCong(); }
+function ccTruoc(){ if(ccCheDo==='thang') ccThang=new Date(ccThang.getFullYear(), ccThang.getMonth()-1, 1); else ccMonday.setDate(ccMonday.getDate()-7); renderChamCong(ccGridData); }
+function ccSau(){ if(ccCheDo==='thang') ccThang=new Date(ccThang.getFullYear(), ccThang.getMonth()+1, 1); else ccMonday.setDate(ccMonday.getDate()+7); renderChamCong(ccGridData); }
+// giữ tên cũ để không vỡ chỗ khác có gọi
+function tuanNay(){ ccNay(); } function tuanTruoc(){ ccTruoc(); } function tuanSau(){ ccSau(); }
+
+// Server trả về TOÀN BỘ dữ liệu chấm công trong 1 lần gọi -> chuyển tuần/tháng không cần tải lại
 function loadChamCong(){
   if(!ccMonday) ccMonday=mondayOf(new Date());
+  if(!ccThang) ccThang=ccDauThang(new Date());
   var grid=document.getElementById('cc_grid'); grid.innerHTML='<p style="color:#656d76">Đang tải...</p>';
   google.script.run.withSuccessHandler(renderChamCong).withFailureHandler(function(e){ grid.innerHTML='<p style="color:#cf222e">Lỗi: '+e.message+'</p>'; }).getChamCongTuan(ymd(ccMonday));
 }
+function ccTT(ma, day){ return (ccGridData.data[ma]&&ccGridData.data[ma][day])||''; }
+function ccCls(day, tt){
+  var dw=parseD(day).getDay(), wk=(dw===0||dw===6);
+  return 'cc-cell'+(wk?' weekend':'')+(tt==='Nửa ngày'?' half':'')+(tt==='Cả ngày'?' full':'')+(day===today()?' today':'');
+}
+function ccKyHieu(tt){ return tt==='Nửa ngày'?'½':(tt==='Cả ngày'?'✓':''); }
 function renderChamCong(res){
+  if(!res) return loadChamCong();
   ccGridData=res;
+  document.getElementById('cc_btnTuan').classList.toggle('on', ccCheDo==='tuan');
+  document.getElementById('cc_btnThang').classList.toggle('on', ccCheDo==='thang');
+  document.getElementById('cc_btnNay').textContent = ccCheDo==='thang' ? 'Tháng này' : 'Tuần này';
+  if(ccCheDo==='thang') return renderChamCongThang();
   var dowNames=['T2','T3','T4','T5','T6','T7','CN'];
-  var d0=new Date(ccMonday.getTime()), d6=new Date(ccMonday.getTime()); d6.setDate(d6.getDate()+6);
-  document.getElementById('cc_tuanLabel').textContent='Tuần '+ddmm(d0)+' - '+ddmm(d6);
+  var days=[]; for(var i=0;i<7;i++){ var d=new Date(ccMonday.getTime()); d.setDate(d.getDate()+i); days.push(ymd(d)); }
+  document.getElementById('cc_tuanLabel').textContent='Tuần '+ddmm(parseD(days[0]))+' - '+ddmm(parseD(days[6]));
   var html='<table class="cc-table"><thead><tr><th>Dược sĩ</th>';
-  res.days.forEach(function(day,i){ html+='<th>'+dowNames[i]+'<br>'+ddmm(parseD(day))+'</th>'; });
+  days.forEach(function(day,i){ html+='<th>'+dowNames[i]+'<br>'+ddmm(parseD(day))+'</th>'; });
   html+='</tr></thead><tbody>';
   res.duocsi.forEach(function(ds){
     html+='<tr><td class="name">'+esc(ds.ten)+'</td>';
-    res.days.forEach(function(day,i){
-      var isWeekend=(i>=5);
-      var tt=(res.data[ds.ma]&&res.data[ds.ma][day])?res.data[ds.ma][day]:'';
-      var cls='cc-cell'+(isWeekend?' weekend':'')+(tt==='Nửa ngày'?' half':'')+(tt==='Cả ngày'?' full':'');
-      var txt=(tt==='Nửa ngày'?'½':(tt==='Cả ngày'?'✓':''));
-      html+='<td class="'+cls+'" onclick="toggleCC(\''+ds.ma+'\',\''+day+'\')" id="cc_'+ds.ma+'_'+day+'">'+txt+'</td>';
+    days.forEach(function(day){
+      var tt=ccTT(ds.ma,day);
+      html+='<td class="'+ccCls(day,tt)+'" onclick="toggleCC(\''+ds.ma+'\',\''+day+'\')" id="cc_'+ds.ma+'_'+day+'">'+ccKyHieu(tt)+'</td>';
     });
     html+='</tr>';
   });
-  html+='</tbody></table>';
-  document.getElementById('cc_grid').innerHTML=html;
+  document.getElementById('cc_grid').innerHTML=html+'</tbody></table>';
 }
+
+// ---- Xem cả tháng: mỗi dược sĩ 1 hàng, 28–31 cột ngày, cuối hàng là ngày công + giờ làm ----
+var CC_THU=['CN','T2','T3','T4','T5','T6','T7'];
+function ccNgayTrongThang(){ var y=ccThang.getFullYear(), m=ccThang.getMonth(), n=new Date(y,m+1,0).getDate(), out=[]; for(var i=1;i<=n;i++) out.push(ymd(new Date(y,m,i))); return out; }
+function ccTongHang(ma, days){   // giống cách tính trên server: bỏ T7/CN, cả ngày = 1 công/8h, nửa = 0.5/4h
+  var cong=0; days.forEach(function(day){ var dw=parseD(day).getDay(); if(dw===0||dw===6) return; var tt=ccTT(ma,day); cong+= tt==='Cả ngày'?1:(tt==='Nửa ngày'?0.5:0); });
+  return { cong:cong, gio:cong*8 };
+}
+function renderChamCongThang(){
+  var res=ccGridData, days=ccNgayTrongThang();
+  var soNgayLV=days.filter(function(d){ var w=parseD(d).getDay(); return w!==0&&w!==6; }).length;
+  document.getElementById('cc_tuanLabel').textContent='Tháng '+(ccThang.getMonth()+1)+'/'+ccThang.getFullYear();
+  var h='<table class="cc-table cc-month"><colgroup><col class="c-ten">'+days.map(function(){return '<col>';}).join('')+'<col class="c-cong"></colgroup>'+
+        '<thead><tr><th rowspan="2" style="text-align:left;padding-left:8px">Dược sĩ</th>';
+  days.forEach(function(day){ var w=parseD(day).getDay(); h+='<th class="'+((w===0||w===6)?'dow-we':'')+(day===today()?' today':'')+'">'+CC_THU[w]+'</th>'; });
+  h+='<th rowspan="2" title="Không tính T7/CN">Công<br><span style="font-weight:400;color:#8c959f">/ '+soNgayLV+'</span></th></tr><tr>';
+  days.forEach(function(day){ var w=parseD(day).getDay(); h+='<th class="'+((w===0||w===6)?'dow-we':'')+(day===today()?' today':'')+'">'+parseD(day).getDate()+'</th>'; });
+  h+='</tr></thead><tbody>';
+  res.duocsi.forEach(function(ds){
+    var t=ccTongHang(ds.ma, days);
+    h+='<tr><td class="name" title="'+esc(ds.ten)+'">'+esc(ds.ten)+'</td>';
+    days.forEach(function(day){ var tt=ccTT(ds.ma,day); h+='<td class="'+ccCls(day,tt)+'" onclick="toggleCC(\''+ds.ma+'\',\''+day+'\')" id="cc_'+ds.ma+'_'+day+'">'+ccKyHieu(tt)+'</td>'; });
+    h+='<td class="sum" id="ccSumC_'+ds.ma+'" title="'+t.gio+' giờ làm">'+t.cong+'</td></tr>';
+  });
+  // hàng cuối: số người đi làm mỗi ngày
+  h+='</tbody><tfoot><tr><td style="text-align:left;padding-left:8px">Số người</td>';
+  days.forEach(function(day){ h+='<td id="ccFoot_'+day+'">'+(ccDemNgay(day)||'')+'</td>'; });
+  h+='<td></td></tr></tfoot></table>';
+  document.getElementById('cc_grid').innerHTML=h;
+}
+function ccDemNgay(day){ var n=0; ccGridData.duocsi.forEach(function(ds){ var tt=ccTT(ds.ma,day); n+= tt==='Cả ngày'?1:(tt==='Nửa ngày'?0.5:0); }); return n; }
+
 function toggleCC(ma, day){
   if(!ccGridData.data[ma]) ccGridData.data[ma]={};
   var cur=ccGridData.data[ma][day]||'';
   var idx=CC_TT.indexOf(cur); var next=CC_TT[(idx+1)%3];
   ccGridData.data[ma][day]=next;
   var cell=document.getElementById('cc_'+ma+'_'+day);
-  var wknd=(parseD(day).getDay()===0||parseD(day).getDay()===6);
-  cell.className='cc-cell'+(wknd?' weekend':'')+(next==='Nửa ngày'?' half':'')+(next==='Cả ngày'?' full':'');
-  cell.textContent=(next==='Nửa ngày'?'½':(next==='Cả ngày'?'✓':''));
+  cell.className=ccCls(day,next); cell.textContent=ccKyHieu(next);
+  if(ccCheDo==='thang'){
+    var t=ccTongHang(ma, ccNgayTrongThang());
+    var sc=document.getElementById('ccSumC_'+ma); sc.textContent=t.cong; sc.title=t.gio+' giờ làm';
+    var f=document.getElementById('ccFoot_'+day); if(f) f.textContent=ccDemNgay(day)||'';
+  }
   google.script.run.withFailureHandler(function(e){ err(document.getElementById('cc_msg'),'Lỗi lưu: '+e.message); }).luuChamCong(day, ma, next);
 }
 
