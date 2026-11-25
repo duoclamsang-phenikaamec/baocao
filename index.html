@@ -125,6 +125,7 @@
         <div class="tabs">
           <div class="tab" data-screen="radon" onclick="showScreen('radon')">Rà đơn ngoại trú</div>
           <div class="tab" data-screen="sodon" onclick="showScreen('sodon')">Số đơn ngoại trú</div>
+          <div class="tab" data-screen="tuvan" onclick="showScreen('tuvan')">Tư vấn ngoại trú</div>
         </div>
       </div>
       <div class="nav-grp">
@@ -287,6 +288,46 @@
     <div class="btns"><button onclick="resetRD()">Làm mới</button><button class="primary" id="rd_saveBtn" onclick="saveRD()">Lưu tất cả</button></div>
   </div>
 
+  <!-- ===== MÀN TƯ VẤN NGOẠI TRÚ ===== -->
+  <div id="screen-tuvan" class="card hidden">
+    <div class="head"><div class="ic">&#128172;</div><div><h2>Tư vấn ngoại trú</h2><p>Ghi nhận tư vấn sử dụng thuốc cho bệnh nhân ngoại trú</p></div></div>
+    <div class="grid">
+      <div><label>Ngày <span class="req">*</span></label><input type="date" id="tv_Ngay"></div>
+      <div><label>Dược sĩ <span class="req">*</span></label><select id="tv_MaNS"></select></div>
+      <div><label>Số BN tư vấn</label><input type="text" id="tv_dem" readonly placeholder="Tự đếm theo bảng" style="background:#f6f8fa"></div>
+    </div>
+
+    <label style="display:block;margin:16px 0 6px">Danh sách bệnh nhân được tư vấn <span style="color:#8c959f">(mỗi dòng 1 bệnh nhân)</span></label>
+    <div class="sg-wrap">
+      <table class="sg" style="min-width:640px">
+        <thead><tr>
+          <th style="width:52px;text-align:center">STT</th>
+          <th style="width:22%">Tên BN</th>
+          <th style="width:14%">Mã BN</th>
+          <th>Nội dung tư vấn</th>
+          <th style="width:44px"></th>
+        </tr></thead>
+        <tbody id="tv_body"></tbody>
+      </table>
+    </div>
+    <div class="sg-tools">
+      <button onclick="tvThem(1)">+ Thêm dòng</button>
+      <button onclick="tvThem(5)">+ 5 dòng</button>
+      <span class="hint">Enter: xuống dòng dưới &middot; Shift+Enter: xuống hàng trong ô &middot; Dán được từ Excel/Sheet</span>
+    </div>
+    <div class="msg" id="tv_msg"></div>
+    <div class="btns"><button onclick="resetTV()">Làm mới</button><button class="primary" id="tv_saveBtn" onclick="saveTV()">Lưu</button></div>
+
+    <div class="ds-list">
+      <div class="filterbar">
+        <div><label>Đã nhập trong tháng</label><input type="month" id="tv_thang" onchange="loadTV()"></div>
+        <div><label>Dược sĩ</label><select id="tv_locDS" onchange="veTV()"><option value="">— Tất cả —</option></select></div>
+        <button onclick="loadTV()">Tải lại</button>
+      </div>
+      <div id="tv_list"></div>
+    </div>
+  </div>
+
   <!-- ===== MÀN CHẤM CÔNG ===== -->
   <div id="screen-chamcong" class="card hidden">
     <div class="head"><div class="ic">&#128197;</div><div><h2>Chấm công</h2><p>Tích ngày đi làm (nửa ngày / cả ngày)</p></div></div>
@@ -391,6 +432,13 @@ google.script.run.withSuccessHandler(function(dm){
     dm.duocsi.forEach(function(d){ var o=document.createElement('option'); o.value=d.ma; o.textContent=d.ten; s.appendChild(o); });
   });
   fillSel('rs_Khoa', dm.khoa, true);
+  // Tư vấn ngoại trú
+  var tvS=document.getElementById('tv_MaNS'); tvS.innerHTML='<option value="">-- Chọn --</option>';
+  var tvL=document.getElementById('tv_locDS');
+  dm.duocsi.forEach(function(d){ [tvS,tvL].forEach(function(s){ var o=document.createElement('option'); o.value=d.ma; o.textContent=d.ten; s.appendChild(o); }); });
+  document.getElementById('tv_Ngay').value=today();
+  document.getElementById('tv_thang').value=thangNay();
+  tvKhoiTao();
   rsKhoiTao();
   document.getElementById('rs_Ngay').value=today();
   document.getElementById('rs_thang').value=thangNay();
@@ -428,12 +476,13 @@ function fillDatalist(id,arr){ var dl=document.getElementById(id); dl.innerHTML=
 function val(id){ return document.getElementById(id).value.trim(); }
 
 function showScreen(name){
-  ['canthiep','hoatdong','rasoat','radon','chamcong','sobn','sodon','baocao'].forEach(function(s){
+  ['canthiep','hoatdong','rasoat','radon','tuvan','chamcong','sobn','sodon','baocao'].forEach(function(s){
     document.getElementById('screen-'+s).classList.toggle('hidden', s!==name);
   });
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.screen===name); });
   if(name==='chamcong' && !ccGridData) loadChamCong();
   if(name==='rasoat' && !rsDaTai) loadRS();
+  if(name==='tuvan' && !tvList) loadTV();
   if(name==='canthiep' && !ctList) loadCTList();
   if(name==='hoatdong' && !hdList) loadHDList();
   if(name==='sobn' && !daTai.sobn){ daTai.sobn=1; loadSoBN(); }
@@ -520,6 +569,93 @@ function suaHD(id){
   veHDList(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function hdThoatSua(){ if(hdSua) document.getElementById('hd_Ngay').value=today(); hdSua=null; document.getElementById('hd_editbar').classList.remove('on'); document.getElementById('hd_saveBtn').textContent='Lưu'; if(hdList) veHDList(); }
+
+// ---- Màn Tư vấn ngoại trú (bảng nhập kiểu Excel, mỗi dòng 1 BN) ----
+var tvList=null, TV_COT=['TenBN','MaBN','NoiDung'];
+function tvKhoiTao(){ document.getElementById('tv_body').innerHTML=''; tvThem(5); tvDem(); }
+function tvTaoDong(){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td class="rn"></td><td><input data-c="TenBN"></td><td><input data-c="MaBN"></td>'+
+    '<td><textarea data-c="NoiDung" rows="1"></textarea></td>'+
+    '<td class="act" style="width:44px"><button title="Xoá dòng" onclick="tvXoaDong(this)">&times;</button></td>';
+  tr.querySelectorAll('input,textarea').forEach(function(el){
+    el.addEventListener('keydown', tvPhim);
+    el.addEventListener('paste', tvDan);
+    el.addEventListener('input', function(){ if(el.tagName==='TEXTAREA') rdCao(el); tvDem(); });
+  });
+  return tr;
+}
+function tvThem(n){ var b=document.getElementById('tv_body'), tr; for(var i=0;i<n;i++){ tr=tvTaoDong(); b.appendChild(tr); } tvSTT(); return tr; }
+function tvSTT(){ document.querySelectorAll('#tv_body tr').forEach(function(r,i){ r.cells[0].textContent=i+1; }); }
+function tvXoaDong(btn){ var tr=btn.closest('tr'); tr.parentNode.removeChild(tr); if(!document.querySelector('#tv_body tr')) tvThem(1); tvSTT(); tvDem(); }
+function tvCacDong(){ return Array.prototype.map.call(document.querySelectorAll('#tv_body tr'), function(tr){
+    var o={}; TV_COT.forEach(function(c){ o[c]=tr.querySelector('[data-c="'+c+'"]').value.trim(); }); return o; })
+  .filter(function(d){ return d.TenBN||d.MaBN||d.NoiDung; }); }
+function tvDem(){ var n=tvCacDong().length; document.getElementById('tv_dem').value = n ? n+' BN' : ''; }
+function tvPhim(e){
+  if(e.key!=='Enter'||e.shiftKey||e.altKey) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'), c=e.target.getAttribute('data-c');
+  (tr.nextElementSibling || tvThem(1)).querySelector('[data-c="'+c+'"]').focus();
+}
+function tvDan(e){
+  var txt=(e.clipboardData||window.clipboardData).getData('text');
+  if(!txt || (txt.indexOf('\t')<0 && txt.replace(/\r?\n$/,'').indexOf('\n')<0)) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'), c0=TV_COT.indexOf(e.target.getAttribute('data-c'));
+  rdTachTSV(txt).forEach(function(cot,i){
+    if(i>0) tr=tr.nextElementSibling || tvThem(1);
+    cot.forEach(function(v,j){ var c=TV_COT[c0+j]; if(!c) return; var el=tr.querySelector('[data-c="'+c+'"]'); el.value=v; if(el.tagName==='TEXTAREA') rdCao(el); });
+  });
+  tvDem();
+}
+function saveTV(){
+  var m=document.getElementById('tv_msg');
+  if(!val('tv_Ngay')) return err(m,'Vui lòng chọn Ngày');
+  if(!val('tv_MaNS')) return err(m,'Vui lòng chọn Dược sĩ');
+  var rows=tvCacDong();
+  if(!rows.length) return err(m,'Bảng chưa có bệnh nhân nào');
+  var chung={ Ngay:val('tv_Ngay'), MaNS:val('tv_MaNS') };
+  var btn=document.getElementById('tv_saveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
+  google.script.run.withSuccessHandler(function(res){
+    btn.disabled=false; btn.textContent='Lưu'; res.ok?ok(m,res.msg):err(m,res.msg);
+    if(res.ok){ tvKhoiTao(); document.getElementById('tv_thang').value=chung.Ngay.slice(0,7); loadTV(); }
+  }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Lưu'; err(m,'Lỗi: '+e.message); }).tv_luu(chung, rows);
+}
+function resetTV(){
+  if(tvCacDong().length && !confirm('Xoá toàn bộ bảng đang nhập?')) return;
+  document.getElementById('tv_Ngay').value=today(); document.getElementById('tv_MaNS').value='';
+  document.getElementById('tv_msg').className='msg'; tvKhoiTao();
+}
+function loadTV(){
+  var a=document.getElementById('tv_list'); a.innerHTML='<p style="color:#656d76">Đang tải...</p>';
+  google.script.run.withSuccessHandler(function(rows){ tvList=rows||[]; veTV(); })
+    .withFailureHandler(function(e){ a.innerHTML='<p style="color:#cf222e">Lỗi: '+esc(e.message)+'</p>'; })
+    .tv_danhSach(val('tv_thang'));
+}
+function veTV(){
+  var a=document.getElementById('tv_list'), loc=val('tv_locDS');
+  var rows=(tvList||[]).filter(function(r){ return !loc || r.maNS===loc; });
+  if(!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt tư vấn nào trong tháng này.</p>'; return; }
+  var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>Dược sĩ</th><th>Tên BN</th><th>Mã BN</th><th>Nội dung tư vấn</th><th class="num">Xóa</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    h+='<tr><td style="white-space:nowrap">'+r.ngay+'</td><td style="white-space:nowrap">'+esc(dsTen(r.maNS))+'</td><td>'+esc(r.tenBN)+'</td><td>'+esc(r.maBN)+'</td>'+
+       '<td style="white-space:pre-line">'+esc(r.noiDung)+'</td>'+
+       '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaTV(\''+r.id+'\',this)">Xóa</button></td></tr>';
+  });
+  // tổng theo dược sĩ
+  var dem={}; rows.forEach(function(r){ dem[r.maNS]=(dem[r.maNS]||0)+1; });
+  var tom=Object.keys(dem).map(function(k){ return esc(dsTen(k))+': '+dem[k]; }).join(' &middot; ');
+  h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="6">Tổng: '+rows.length+' lượt tư vấn'+(loc?'':' <span style="font-weight:400;color:#656d76">('+tom+')</span>')+'</td></tr>';
+  a.innerHTML=h+'</tbody></table></div>';
+}
+function xoaTV(id, btn){
+  if(!confirm('Xóa lượt tư vấn này? Không hoàn tác được.')) return;
+  var m=document.getElementById('tv_msg'); btn.disabled=true; btn.textContent='Đang xóa...';
+  google.script.run.withSuccessHandler(function(res){
+    if(res.ok){ ok(m,res.msg); loadTV(); } else { btn.disabled=false; btn.textContent='Xóa'; err(m,res.msg); }
+  }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Xóa'; err(m,'Lỗi: '+e.message); }).tv_xoa(id);
+}
 
 // ---- Màn Rà soát chéo ----
 var rsDaTai=false, rsBNTay=false;   // rsBNTay = người dùng đã tự gõ Số BN -> không tự đếm đè lên
