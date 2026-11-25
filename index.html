@@ -572,7 +572,7 @@ function suaHD(id){
 function hdThoatSua(){ if(hdSua) document.getElementById('hd_Ngay').value=today(); hdSua=null; document.getElementById('hd_editbar').classList.remove('on'); document.getElementById('hd_saveBtn').textContent='Lưu'; if(hdList) veHDList(); }
 
 // ---- Màn Tư vấn ngoại trú (bảng nhập kiểu Excel, mỗi dòng 1 BN) ----
-var tvList=null, TV_COT=['TenBN','MaBN','LoaiThongTinThuoc','NoiDung'];
+var tvSuaId=null, tvList=null, TV_COT=['TenBN','MaBN','LoaiThongTinThuoc','NoiDung'];
 function tvKhoiTao(){ document.getElementById('tv_body').innerHTML=''; tvThem(5); tvDem(); }
 function tvTaoDong(){
   var tr=document.createElement('tr');
@@ -645,11 +645,13 @@ function veTV(){
   var a=document.getElementById('tv_list'), loc=val('tv_locDS');
   var rows=(tvList||[]).filter(function(r){ return !loc || r.maNS===loc; });
   if(!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt tư vấn nào trong tháng này.</p>'; return; }
-  var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>Dược sĩ</th><th>Tên BN</th><th>Mã BN</th><th>Phân loại</th><th>Nội dung tư vấn</th><th class="num">Xóa</th></tr></thead><tbody>';
+  var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>Dược sĩ</th><th>Tên BN</th><th>Mã BN</th><th>Phân loại</th><th>Nội dung tư vấn</th><th class="num" style="width:150px"></th></tr></thead><tbody>';
   rows.forEach(function(r){
+    if(r.id===tvSuaId){ h+=tvDongSua(r); return; }
     h+='<tr><td style="white-space:nowrap">'+r.ngay+'</td><td style="white-space:nowrap">'+esc(dsTen(r.maNS))+'</td><td>'+esc(r.tenBN)+'</td><td>'+esc(r.maBN)+'</td><td>'+esc(r.loai||'')+'</td>'+
        '<td style="white-space:pre-line">'+esc(r.noiDung)+'</td>'+
-       '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaTV(\''+r.id+'\',this)">Xóa</button></td></tr>';
+       '<td class="num" style="white-space:nowrap"><button class="sua" style="padding:4px 10px;font-size:14px" onclick="suaTV(\''+r.id+'\')"'+(tvSuaId?' disabled':'')+'>Sửa</button> '+
+       '<button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaTV(\''+r.id+'\',this)"'+(tvSuaId?' disabled':'')+'>Xóa</button></td></tr>';
   });
   // tổng theo dược sĩ
   var dem={}; rows.forEach(function(r){ dem[r.maNS]=(dem[r.maNS]||0)+1; });
@@ -657,6 +659,34 @@ function veTV(){
   h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="7">Tổng: '+rows.length+' lượt tư vấn'+(loc?'':' <span style="font-weight:400;color:#656d76">('+tom+')</span>')+'</td></tr>';
   a.innerHTML=h+'</tbody></table></div>';
 }
+// ---- Sửa 1 lượt tư vấn ngay trong danh sách ----
+function suaTV(id){ tvSuaId=id; veTV(); var el=document.getElementById('tvS_TenBN'); if(el) el.focus(); }
+function huySuaTV(){ tvSuaId=null; veTV(); }
+function tvDongSua(r){
+  var o=function(ds,v,keyVal){ var co=false, h='<option value=""></option>'+ds.map(function(x){ var val=keyVal?x.ma:x, t=keyVal?x.ten:x; if(val===v) co=true; return '<option value="'+esc(val)+'"'+(val===v?' selected':'')+'>'+esc(t)+'</option>'; }).join('');
+    if(v && !co) h+='<option value="'+esc(v)+'" selected>'+esc(v)+' (cũ)</option>'; return h; };
+  var st='width:100%;padding:6px 8px;font-size:15px';
+  return '<tr class="editing">'+
+    '<td><input type="date" id="tvS_Ngay" value="'+r.ngay+'" style="'+st+'"></td>'+
+    '<td><select id="tvS_MaNS" style="'+st+'">'+o(DM.duocsi,r.maNS,true)+'</select></td>'+
+    '<td><input id="tvS_TenBN" value="'+esc(r.tenBN).replace(/"/g,'&quot;')+'" style="'+st+'"></td>'+
+    '<td><input id="tvS_MaBN" value="'+esc(r.maBN).replace(/"/g,'&quot;')+'" style="'+st+'"></td>'+
+    '<td><select id="tvS_Loai" style="'+st+'">'+o(DM.ttThuoc||[],r.loai||'')+'</select></td>'+
+    '<td><textarea id="tvS_NoiDung" rows="2" style="'+st+';resize:vertical;font-family:inherit">'+esc(r.noiDung)+'</textarea></td>'+
+    '<td class="num" style="white-space:nowrap"><button class="primary" style="padding:4px 12px;font-size:14px" onclick="luuSuaTV(\''+r.id+'\',this)">Lưu</button> '+
+    '<button style="padding:4px 10px;font-size:14px" onclick="huySuaTV()">Huỷ</button></td></tr>';
+}
+function luuSuaTV(id, btn){
+  var m=document.getElementById('tv_msg');
+  var obj={ Ngay:val('tvS_Ngay'), MaNS:val('tvS_MaNS'), TenBN:val('tvS_TenBN'), MaBN:val('tvS_MaBN'), LoaiThongTinThuoc:val('tvS_Loai'), NoiDung:val('tvS_NoiDung') };
+  if(!obj.Ngay) return err(m,'Vui lòng chọn Ngày');
+  if(!obj.MaNS) return err(m,'Vui lòng chọn Dược sĩ');
+  btn.disabled=true; btn.textContent='Đang lưu...';
+  google.script.run.withSuccessHandler(function(res){
+    if(res.ok){ ok(m,res.msg); tvSuaId=null; loadTV(); } else { btn.disabled=false; btn.textContent='Lưu'; err(m,res.msg); }
+  }).withFailureHandler(function(e){ btn.disabled=false; btn.textContent='Lưu'; err(m,'Lỗi: '+e.message); }).tv_sua(id, obj);
+}
+
 function xoaTV(id, btn){
   if(!confirm('Xóa lượt tư vấn này? Không hoàn tác được.')) return;
   var m=document.getElementById('tv_msg'); btn.disabled=true; btn.textContent='Đang xóa...';
