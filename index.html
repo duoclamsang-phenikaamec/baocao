@@ -303,7 +303,8 @@
         <thead><tr>
           <th style="width:52px;text-align:center">STT</th>
           <th style="width:22%">Tên BN</th>
-          <th style="width:14%">Mã BN</th>
+          <th style="width:12%">Mã BN</th>
+          <th style="width:20%">Phân loại</th>
           <th>Nội dung tư vấn</th>
           <th style="width:44px"></th>
         </tr></thead>
@@ -571,17 +572,19 @@ function suaHD(id){
 function hdThoatSua(){ if(hdSua) document.getElementById('hd_Ngay').value=today(); hdSua=null; document.getElementById('hd_editbar').classList.remove('on'); document.getElementById('hd_saveBtn').textContent='Lưu'; if(hdList) veHDList(); }
 
 // ---- Màn Tư vấn ngoại trú (bảng nhập kiểu Excel, mỗi dòng 1 BN) ----
-var tvList=null, TV_COT=['TenBN','MaBN','NoiDung'];
+var tvList=null, TV_COT=['TenBN','MaBN','LoaiThongTinThuoc','NoiDung'];
 function tvKhoiTao(){ document.getElementById('tv_body').innerHTML=''; tvThem(5); tvDem(); }
 function tvTaoDong(){
   var tr=document.createElement('tr');
+  var opt='<option value=""></option>'+((DM&&DM.ttThuoc)||[]).map(function(x){ return '<option>'+esc(x)+'</option>'; }).join('');
   tr.innerHTML='<td class="rn"></td><td><input data-c="TenBN"></td><td><input data-c="MaBN"></td>'+
+    '<td><select data-c="LoaiThongTinThuoc">'+opt+'</select></td>'+
     '<td><textarea data-c="NoiDung" rows="1"></textarea></td>'+
     '<td class="act" style="width:44px"><button title="Xoá dòng" onclick="tvXoaDong(this)">&times;</button></td>';
-  tr.querySelectorAll('input,textarea').forEach(function(el){
+  tr.querySelectorAll('input,textarea,select').forEach(function(el){
     el.addEventListener('keydown', tvPhim);
     el.addEventListener('paste', tvDan);
-    el.addEventListener('input', function(){ if(el.tagName==='TEXTAREA') rdCao(el); tvDem(); });
+    el.addEventListener(el.tagName==='SELECT'?'change':'input', function(){ if(el.tagName==='TEXTAREA') rdCao(el); tvDem(); });
   });
   return tr;
 }
@@ -593,7 +596,7 @@ function tvCacDong(){ return Array.prototype.map.call(document.querySelectorAll(
   .filter(function(d){ return d.TenBN||d.MaBN||d.NoiDung; }); }
 function tvDem(){ var n=tvCacDong().length; document.getElementById('tv_dem').value = n ? n+' BN' : ''; }
 function tvPhim(e){
-  if(e.key!=='Enter'||e.shiftKey||e.altKey) return;
+  if(e.key!=='Enter'||e.shiftKey||e.altKey||e.target.tagName==='SELECT') return;
   e.preventDefault();
   var tr=e.target.closest('tr'), c=e.target.getAttribute('data-c');
   (tr.nextElementSibling || tvThem(1)).querySelector('[data-c="'+c+'"]').focus();
@@ -605,7 +608,12 @@ function tvDan(e){
   var tr=e.target.closest('tr'), c0=TV_COT.indexOf(e.target.getAttribute('data-c'));
   rdTachTSV(txt).forEach(function(cot,i){
     if(i>0) tr=tr.nextElementSibling || tvThem(1);
-    cot.forEach(function(v,j){ var c=TV_COT[c0+j]; if(!c) return; var el=tr.querySelector('[data-c="'+c+'"]'); el.value=v; if(el.tagName==='TEXTAREA') rdCao(el); });
+    cot.forEach(function(v,j){ var c=TV_COT[c0+j]; if(!c) return; var el=tr.querySelector('[data-c="'+c+'"]');
+      if(el.tagName==='SELECT'){   // tự khớp chữ với danh mục (không phân biệt hoa thường, khớp 1 phần)
+        v=String(v||'').trim().toLowerCase(); var ds=(DM&&DM.ttThuoc)||[];
+        el.value = ds.filter(function(x){ return x.toLowerCase()===v; })[0] || (v ? ds.filter(function(x){ return x.toLowerCase().indexOf(v)>=0; })[0] : '') || '';
+      } else { el.value=v; if(el.tagName==='TEXTAREA') rdCao(el); }
+    });
   });
   tvDem();
 }
@@ -637,16 +645,16 @@ function veTV(){
   var a=document.getElementById('tv_list'), loc=val('tv_locDS');
   var rows=(tvList||[]).filter(function(r){ return !loc || r.maNS===loc; });
   if(!rows.length){ a.innerHTML='<p style="color:#656d76">Chưa có lượt tư vấn nào trong tháng này.</p>'; return; }
-  var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>Dược sĩ</th><th>Tên BN</th><th>Mã BN</th><th>Nội dung tư vấn</th><th class="num">Xóa</th></tr></thead><tbody>';
+  var h='<div style="overflow-x:auto"><table><thead><tr><th>Ngày</th><th>Dược sĩ</th><th>Tên BN</th><th>Mã BN</th><th>Phân loại</th><th>Nội dung tư vấn</th><th class="num">Xóa</th></tr></thead><tbody>';
   rows.forEach(function(r){
-    h+='<tr><td style="white-space:nowrap">'+r.ngay+'</td><td style="white-space:nowrap">'+esc(dsTen(r.maNS))+'</td><td>'+esc(r.tenBN)+'</td><td>'+esc(r.maBN)+'</td>'+
+    h+='<tr><td style="white-space:nowrap">'+r.ngay+'</td><td style="white-space:nowrap">'+esc(dsTen(r.maNS))+'</td><td>'+esc(r.tenBN)+'</td><td>'+esc(r.maBN)+'</td><td>'+esc(r.loai||'')+'</td>'+
        '<td style="white-space:pre-line">'+esc(r.noiDung)+'</td>'+
        '<td class="num"><button style="padding:4px 10px;font-size:14px;color:#cf222e;border-color:#cf222e" onclick="xoaTV(\''+r.id+'\',this)">Xóa</button></td></tr>';
   });
   // tổng theo dược sĩ
   var dem={}; rows.forEach(function(r){ dem[r.maNS]=(dem[r.maNS]||0)+1; });
   var tom=Object.keys(dem).map(function(k){ return esc(dsTen(k))+': '+dem[k]; }).join(' &middot; ');
-  h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="6">Tổng: '+rows.length+' lượt tư vấn'+(loc?'':' <span style="font-weight:400;color:#656d76">('+tom+')</span>')+'</td></tr>';
+  h+='<tr style="font-weight:700;background:#f6f8fa"><td colspan="7">Tổng: '+rows.length+' lượt tư vấn'+(loc?'':' <span style="font-weight:400;color:#656d76">('+tom+')</span>')+'</td></tr>';
   a.innerHTML=h+'</tbody></table></div>';
 }
 function xoaTV(id, btn){
