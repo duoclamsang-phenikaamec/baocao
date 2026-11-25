@@ -546,8 +546,8 @@ function rsDong(tr){ var o={}; RS_COT.forEach(function(c){ o[c]=tr.querySelector
 function rsCacDong(){ return Array.prototype.map.call(document.querySelectorAll('#rs_body tr'), rsDong)
   .filter(function(d){ return d.TenBN||d.MaBN||d.NoiDung; }); }
 // Ghép thành: "BN A - Mã - Nội dung" mỗi dòng (bỏ phần trống)
-// Chỉ ghép những BN CÓ nội dung vấn đề; BN không có vấn đề vẫn được đếm vào Số BN
-function rsGhepChiTiet(){ return rsCacDong().filter(function(d){ return d.NoiDung; }).map(function(d){ return [d.TenBN,d.MaBN,d.NoiDung.replace(/\s*\n\s*/g,'; ')].filter(String).join(' - '); }).join('\n'); }
+// Ghép MỌI dòng có dữ liệu: "Họ tên - Mã BN - Nội dung" (phần nào trống thì bỏ, không để dấu - thừa)
+function rsGhepChiTiet(){ return rsCacDong().map(function(d){ return [d.TenBN,d.MaBN,d.NoiDung.replace(/\s*\n\s*/g,'; ')].filter(String).join(' - '); }).join('\n'); }
 function rsDem(){ if(rsBNTay) return; var n=rsCacDong().length; document.getElementById('rs_SoBN').value = n ? n : ''; rsTyLe(); }
 function rsPhim(e){
   if(e.key!=='Enter'||e.shiftKey||e.altKey) return;
